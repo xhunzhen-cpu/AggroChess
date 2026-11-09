@@ -1,0 +1,7211 @@
+{
+  "generated": "2026-11-09T05:21:35Z",
+  "run_dir": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze",
+  "meta": {
+    "tool": "sactest.py",
+    "started": "2026-11-09T05:11:00Z",
+    "finished": "2026-11-09T05:21:35Z",
+    "run_dir": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze",
+    "tc": "10+0.1",
+    "games_per_anchor": 40,
+    "h2h_games": 60,
+    "anchors": [
+      1800
+    ],
+    "concurrency": 12,
+    "seed": 1,
+    "openings": "/root/aggroclone/AggroChess/testing/openings/8moves_v3.txt",
+    "personality": "Aggression=100;Sacrifice Appetite=100;King Attack Priority=100;Material Preservation=0;Speculative Sacrifices=100",
+    "engines": {
+      "aggro_new": {
+        "source": "/root/aggroclone/tools/bin/aggro_use_rc3",
+        "path": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/bin/aggro_new",
+        "sha256": "3a587a03ac6b856bb3e02e9e9540573da958b6cc305c73e1369994ab265b3a67",
+        "id_name": "AggroChess Ultimate Sacrificial Edition 5.0.0",
+        "options": [
+          [
+            "Threads",
+            "1"
+          ],
+          [
+            "Hash",
+            "16"
+          ],
+          [
+            "Skill Level",
+            "21"
+          ],
+          [
+            "Aggression",
+            "100"
+          ],
+          [
+            "Sacrifice Appetite",
+            "100"
+          ],
+          [
+            "King Attack Priority",
+            "100"
+          ],
+          [
+            "Material Preservation",
+            "0"
+          ],
+          [
+            "Speculative Sacrifices",
+            "100"
+          ]
+        ],
+        "cwd": "/root/aggroclone/AggroChess",
+        "advertised_options": [
+          "Aggression",
+          "BookPath",
+          "Clear Hash",
+          "Hash",
+          "King Attack Priority",
+          "Material Preservation",
+          "Move Overhead",
+          "MultiPV",
+          "Sacrifice Appetite",
+          "Skill Level",
+          "Speculative Sacrifices",
+          "Threads"
+        ]
+      },
+      "aggro_old": {
+        "source": "/root/aggroclone/tools/bin/aggro_use_rc3",
+        "path": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/bin/aggro_old",
+        "sha256": "3a587a03ac6b856bb3e02e9e9540573da958b6cc305c73e1369994ab265b3a67",
+        "id_name": "AggroChess Ultimate Sacrificial Edition 5.0.0",
+        "options": [
+          [
+            "Threads",
+            "1"
+          ],
+          [
+            "Hash",
+            "16"
+          ]
+        ],
+        "cwd": "/root/aggroclone/AggroChess",
+        "advertised_options": [
+          "Aggression",
+          "BookPath",
+          "Clear Hash",
+          "Hash",
+          "King Attack Priority",
+          "Material Preservation",
+          "Move Overhead",
+          "MultiPV",
+          "Sacrifice Appetite",
+          "Skill Level",
+          "Speculative Sacrifices",
+          "Threads"
+        ]
+      }
+    },
+    "stockfish": {
+      "path": "/usr/games/stockfish",
+      "id_name": "Stockfish 16",
+      "sha256": "00628bd9c9855c1b7ff93d7f8d51b413586cdc6336fe637f9a14a61531a05aca"
+    },
+    "book": {
+      "path": "/root/aggroclone/AggroChess/ph-gambitbook.bin",
+      "sha256": "f2dddc37343b155624fddb08a7743965e806b717ac87985f887643e126119f14"
+    },
+    "arena": {
+      "path": "/root/aggroclone/AggroChess/testing/arena/target/release/aggro_arena",
+      "sha256": "877596a01ad52ddce35b9ccae7abd2d7e01a29f6473dc10198102e8952b056a5"
+    },
+    "environment": {
+      "host": "kv1",
+      "cpu_model": "Intel(R) Core(TM) Ultra 5 125H",
+      "logical_cpus": 18,
+      "mem_total_gb": 12.5,
+      "os": "Linux 6.8.0-147-generic",
+      "python": "3.12.3"
+    },
+    "matches": {
+      "gauntlet_new": {
+        "exit_code": 0,
+        "duration_s": 116.7
+      },
+      "gauntlet_old": {
+        "exit_code": 0,
+        "duration_s": 122.7
+      },
+      "h2h": {
+        "exit_code": 0,
+        "duration_s": 153.5
+      }
+    },
+    "plan": [
+      {
+        "match": "gauntlet_new",
+        "games": 40
+      },
+      {
+        "match": "gauntlet_old",
+        "games": 40
+      },
+      {
+        "match": "h2h",
+        "games": 60
+      }
+    ],
+    "sf": "/usr/games/stockfish",
+    "sf_nodes": 400000,
+    "sf_threads": 12,
+    "analysis": {
+      "aggro_new": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/analysis_new.json",
+      "aggro_old": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/analysis_old.json"
+    }
+  },
+  "matches": [
+    {
+      "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_new.jsonl.summary.json",
+      "engine_a": "aggro_new",
+      "engine_b": "sf1800",
+      "games": 40,
+      "games_planned": 40,
+      "wins": 14,
+      "draws": 4,
+      "losses": 22,
+      "score": 0.39999999999999997,
+      "elo": -70.4365036222725,
+      "elo_lo": -185.05380820224877,
+      "elo_hi": 30.4390418876252,
+      "los": 0.09121122438730367,
+      "forfeits": {
+        "aggro_new": {
+          "time": 0,
+          "illegal": 0,
+          "crash": 0
+        },
+        "sf1800": {
+          "time": 0,
+          "illegal": 0,
+          "crash": 0
+        }
+      }
+    },
+    {
+      "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_old.jsonl.summary.json",
+      "engine_a": "aggro_old",
+      "engine_b": "sf1800",
+      "games": 40,
+      "games_planned": 40,
+      "wins": 17,
+      "draws": 3,
+      "losses": 20,
+      "score": 0.46249999999999997,
+      "elo": -26.10669260503663,
+      "elo_lo": -135.8151610649712,
+      "elo_hi": 78.48863908585241,
+      "los": 0.3109366908975391,
+      "forfeits": {
+        "aggro_old": {
+          "time": 0,
+          "illegal": 0,
+          "crash": 0
+        },
+        "sf1800": {
+          "time": 0,
+          "illegal": 0,
+          "crash": 0
+        }
+      }
+    },
+    {
+      "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl.summary.json",
+      "engine_a": "aggro_new",
+      "engine_b": "aggro_old",
+      "games": 60,
+      "games_planned": 60,
+      "wins": 27,
+      "draws": 9,
+      "losses": 24,
+      "score": 0.525,
+      "elo": 17.386277512436145,
+      "elo_lo": -64.28316993531466,
+      "elo_hi": 101.05998548730493,
+      "los": 0.6627879754737336,
+      "forfeits": {
+        "aggro_new": {
+          "time": 0,
+          "illegal": 0,
+          "crash": 0
+        },
+        "aggro_old": {
+          "time": 0,
+          "illegal": 0,
+          "crash": 0
+        }
+      }
+    }
+  ],
+  "overall": {
+    "comparison": [
+      {
+        "metric": "Games analysed",
+        "key": "games",
+        "new": 100,
+        "old": 100,
+        "diff": 0,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Score (all games)",
+        "key": "result.score",
+        "new": {
+          "n": 100,
+          "mean": 0.475,
+          "sd": 0.468,
+          "ci95": [
+            0.3799,
+            0.572
+          ],
+          "points": 47.5
+        },
+        "old": {
+          "n": 100,
+          "mean": 0.47,
+          "sd": 0.4704,
+          "ci95": [
+            0.3751,
+            0.5671
+          ],
+          "points": 47.0
+        },
+        "diff": 0.0050000000000000044,
+        "diff_ci95": [
+          -0.1309408999836799,
+          0.14068009535292972
+        ]
+      },
+      {
+        "metric": "Games with >= 1 sacrifice",
+        "key": "games_with_sacrifice",
+        "new": {
+          "count": 77,
+          "of": 100,
+          "rate": 0.77,
+          "ci95": [
+            0.6785,
+            0.8416
+          ]
+        },
+        "old": {
+          "count": 90,
+          "of": 100,
+          "rate": 0.9,
+          "ci95": [
+            0.8256,
+            0.9448
+          ]
+        },
+        "diff": -0.13,
+        "diff_ci95": [
+          -0.23190536387783317,
+          -0.026790813828245802
+        ]
+      },
+      {
+        "metric": "Sacrifices",
+        "key": "sacrifices",
+        "new": 153,
+        "old": 189,
+        "diff": -36,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Sacrifices per game",
+        "key": "sacrifices_per_game",
+        "new": {
+          "n": 100,
+          "mean": 1.53,
+          "sd": 1.2099,
+          "ci95": [
+            1.2929,
+            1.7671
+          ]
+        },
+        "old": {
+          "n": 100,
+          "mean": 1.89,
+          "sd": 1.1798,
+          "ci95": [
+            1.6588,
+            2.1212
+          ]
+        },
+        "diff": -0.3599999999999999,
+        "diff_ci95": [
+          -0.691215710449455,
+          -0.02878428955054485
+        ]
+      },
+      {
+        "metric": "Sacrifices per 100 engine moves",
+        "key": "sacrifices_per_100_moves",
+        "new": 2.9796,
+        "old": 3.5843,
+        "diff": -0.6046999999999998,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Balanced-position sacrifices per game (own eval within +-3)",
+        "key": "balanced_sacrifices_per_game",
+        "new": {
+          "n": 100,
+          "mean": 0.71,
+          "sd": 0.8444,
+          "ci95": [
+            0.5445,
+            0.8755
+          ]
+        },
+        "old": {
+          "n": 100,
+          "mean": 0.88,
+          "sd": 0.9351,
+          "ci95": [
+            0.6967,
+            1.0633
+          ]
+        },
+        "diff": -0.17000000000000004,
+        "diff_ci95": [
+          -0.4169417259813199,
+          0.07694172598131982
+        ]
+      },
+      {
+        "metric": "Games with a balanced-position sacrifice",
+        "key": "games_with_balanced_sacrifice",
+        "new": {
+          "count": 50,
+          "of": 100,
+          "rate": 0.5,
+          "ci95": [
+            0.4038,
+            0.5962
+          ]
+        },
+        "old": {
+          "count": 60,
+          "of": 100,
+          "rate": 0.6,
+          "ci95": [
+            0.502,
+            0.6906
+          ]
+        },
+        "diff": -0.09999999999999998,
+        "diff_ci95": [
+          -0.23212305518776613,
+          0.03730210427926342
+        ]
+      },
+      {
+        "metric": "  queen sacrifices",
+        "key": "categories.queen",
+        "new": 2,
+        "old": 6,
+        "diff": -4,
+        "diff_ci95": null
+      },
+      {
+        "metric": "  exchange sacrifices",
+        "key": "categories.exchange",
+        "new": 6,
+        "old": 11,
+        "diff": -5,
+        "diff_ci95": null
+      },
+      {
+        "metric": "  piece sacrifices",
+        "key": "categories.piece",
+        "new": 67,
+        "old": 70,
+        "diff": -3,
+        "diff_ci95": null
+      },
+      {
+        "metric": "  pawn sacrifices",
+        "key": "categories.pawn",
+        "new": 78,
+        "old": 102,
+        "diff": -24,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Context balanced / winning / losing / unknown",
+        "key": "sacrifices_by_context",
+        "new": {
+          "balanced": 71,
+          "winning": 47,
+          "losing": 35,
+          "unknown": 0
+        },
+        "old": {
+          "balanced": 88,
+          "winning": 52,
+          "losing": 49,
+          "unknown": 0
+        },
+        "diff": null,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Book-gambit sacrifices",
+        "key": "book_sacrifices",
+        "new": 0,
+        "old": 0,
+        "diff": 0,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Intent unknown (no score)",
+        "key": "intent_unknown",
+        "new": 0,
+        "old": 0,
+        "diff": 0,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Chained sacrifices (chain_len > 1)",
+        "key": "chained_sacrifices",
+        "new": 10,
+        "old": 15,
+        "diff": -5,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Blunders (filtered out)",
+        "key": "blunders",
+        "new": 168,
+        "old": 170,
+        "diff": -2,
+        "diff_ci95": null
+      },
+      {
+        "metric": "  of which caused by the previous move (own eval had collapsed)",
+        "key": "blunders_collapsed",
+        "new": 107,
+        "old": 112,
+        "diff": -5,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Blunders per game",
+        "key": "blunders_per_game",
+        "new": {
+          "n": 100,
+          "mean": 1.68,
+          "sd": 1.205,
+          "ci95": [
+            1.4438,
+            1.9162
+          ]
+        },
+        "old": {
+          "n": 100,
+          "mean": 1.7,
+          "sd": 1.3446,
+          "ci95": [
+            1.4365,
+            1.9635
+          ]
+        },
+        "diff": -0.020000000000000018,
+        "diff_ci95": [
+          -0.37387931120266793,
+          0.3338793112026679
+        ]
+      },
+      {
+        "metric": "Forced material losses (single legal move; excluded)",
+        "key": "forced_losses",
+        "new": 1,
+        "old": 2,
+        "diff": -1,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Moves while being mated (desperation; excluded)",
+        "key": "desperation_moves",
+        "new": 52,
+        "old": 33,
+        "diff": 19,
+        "diff_ci95": null
+      },
+      {
+        "metric": "Mate within 30 plies (of sacrifices)",
+        "key": "mates_after_sacrifice",
+        "new": {
+          "count": 19,
+          "of": 153,
+          "rate": 0.1242,
+          "ci95": [
+            0.081,
+            0.1858
+          ]
+        },
+        "old": {
+          "count": 34,
+          "of": 189,
+          "rate": 0.1799,
+          "ci95": [
+            0.1317,
+            0.2409
+          ]
+        },
+        "diff": -0.0557,
+        "diff_ci95": [
+          -0.1304407072879401,
+          0.02253546394095933
+        ]
+      },
+      {
+        "metric": "Recouped within 24 plies",
+        "key": "recouped",
+        "new": {
+          "count": 69,
+          "of": 153,
+          "rate": 0.451,
+          "ci95": [
+            0.3743,
+            0.5301
+          ]
+        },
+        "old": {
+          "count": 81,
+          "of": 189,
+          "rate": 0.4286,
+          "ci95": [
+            0.3601,
+            0.4999
+          ]
+        },
+        "diff": 0.02240000000000003,
+        "diff_ci95": [
+          -0.08228804775220015,
+          0.12699330220771676
+        ]
+      },
+      {
+        "metric": "Successful attacks",
+        "key": "successful_attacks",
+        "new": {
+          "count": 69,
+          "of": 153,
+          "rate": 0.451,
+          "ci95": [
+            0.3743,
+            0.5301
+          ]
+        },
+        "old": {
+          "count": 88,
+          "of": 189,
+          "rate": 0.4656,
+          "ci95": [
+            0.3959,
+            0.5367
+          ]
+        },
+        "diff": -0.014600000000000002,
+        "diff_ci95": [
+          -0.11919427132448909,
+          0.09080049551213616
+        ]
+      },
+      {
+        "metric": "Unsound (SF; of SF-evaluated sacrifices)",
+        "key": "unsound",
+        "new": {
+          "count": 26,
+          "of": 153,
+          "rate": 0.1699,
+          "ci95": [
+            0.1187,
+            0.2374
+          ]
+        },
+        "old": {
+          "count": 27,
+          "of": 189,
+          "rate": 0.1429,
+          "ci95": [
+            0.1001,
+            0.1999
+          ]
+        },
+        "diff": 0.026999999999999996,
+        "diff_ci95": [
+          -0.04958221569964706,
+          0.10692301454917391
+        ]
+      },
+      {
+        "metric": "Practical chances (of unsound)",
+        "key": "practical_chances",
+        "new": {
+          "count": 14,
+          "of": 26,
+          "rate": 0.5385,
+          "ci95": [
+            0.3546,
+            0.7124
+          ]
+        },
+        "old": {
+          "count": 14,
+          "of": 27,
+          "rate": 0.5185,
+          "ci95": [
+            0.3399,
+            0.6926
+          ]
+        },
+        "diff": 0.020000000000000018,
+        "diff_ci95": [
+          -0.23324816166569312,
+          0.26932075513752085
+        ]
+      },
+      {
+        "metric": "Blunders confirmed by SF",
+        "key": "blunders_confirmed_by_sf",
+        "new": {
+          "count": 46,
+          "of": 168,
+          "rate": 0.2738,
+          "ci95": [
+            0.212,
+            0.3457
+          ]
+        },
+        "old": {
+          "count": 41,
+          "of": 170,
+          "rate": 0.2412,
+          "ci95": [
+            0.183,
+            0.3107
+          ]
+        },
+        "diff": 0.03259999999999999,
+        "diff_ci95": [
+          -0.06042485246846095,
+          0.12510676064709209
+        ]
+      },
+      {
+        "metric": "Score in games with a sacrifice",
+        "key": "score_games_with_sacrifice.score",
+        "new": {
+          "n": 77,
+          "mean": 0.5,
+          "sd": 0.4659,
+          "ci95": [
+            0.391,
+            0.609
+          ],
+          "points": 38.5
+        },
+        "old": {
+          "n": 90,
+          "mean": 0.5056,
+          "sd": 0.471,
+          "ci95": [
+            0.4042,
+            0.6065
+          ],
+          "points": 45.5
+        },
+        "diff": -0.005600000000000049,
+        "diff_ci95": [
+          -0.15410299868013666,
+          0.14330129924260424
+        ]
+      },
+      {
+        "metric": "Score in games without a sacrifice",
+        "key": "score_games_without_sacrifice.score",
+        "new": {
+          "n": 23,
+          "mean": 0.3913,
+          "sd": 0.4757,
+          "ci95": [
+            0.2216,
+            0.5921
+          ],
+          "points": 9.0
+        },
+        "old": {
+          "n": 10,
+          "mean": 0.15,
+          "sd": 0.3375,
+          "ci95": [
+            0.0354,
+            0.4588
+          ],
+          "points": 1.5
+        },
+        "diff": 0.2413,
+        "diff_ci95": [
+          -0.1111066314633796,
+          0.47252688893051575
+        ]
+      },
+      {
+        "metric": "Average move number of sacrifices",
+        "key": "avg_move_number",
+        "new": {
+          "n": 153,
+          "mean": 30.7255,
+          "sd": 22.0589,
+          "ci95": [
+            27.2302,
+            34.2208
+          ]
+        },
+        "old": {
+          "n": 189,
+          "mean": 33.3122,
+          "sd": 22.9294,
+          "ci95": [
+            30.0432,
+            36.5811
+          ]
+        },
+        "diff": -2.586699999999997,
+        "diff_ci95": [
+          -7.372442887411447,
+          2.199042887411453
+        ]
+      },
+      {
+        "metric": "Average SF eval before the sacrifice (cp, engine view)",
+        "key": "avg_sf_before",
+        "new": {
+          "n": 153,
+          "mean": 3.4706,
+          "sd": 1052.5546,
+          "ci95": [
+            -163.3106,
+            170.2518
+          ]
+        },
+        "old": {
+          "n": 189,
+          "mean": 65.2963,
+          "sd": 1081.9826,
+          "ci95": [
+            -88.9581,
+            219.5507
+          ]
+        },
+        "diff": -61.825700000000005,
+        "diff_ci95": [
+          -289.00485413827005,
+          165.35345413827005
+        ]
+      },
+      {
+        "metric": "Average SF eval after the sacrifice (cp, engine view)",
+        "key": "avg_sf_after",
+        "new": {
+          "n": 153,
+          "mean": -64.9281,
+          "sd": 1099.9317,
+          "ci95": [
+            -239.2163,
+            109.3601
+          ]
+        },
+        "old": {
+          "n": 189,
+          "mean": -18.5026,
+          "sd": 1142.2202,
+          "ci95": [
+            -181.3449,
+            144.3396
+          ]
+        },
+        "diff": -46.4255,
+        "diff_ci95": [
+          -284.95009583972023,
+          192.09909583972026
+        ]
+      }
+    ],
+    "new": {
+      "games": 100,
+      "result": {
+        "games": 100,
+        "wins": 41,
+        "draws": 13,
+        "losses": 46,
+        "score": {
+          "n": 100,
+          "mean": 0.475,
+          "sd": 0.468,
+          "ci95": [
+            0.3799,
+            0.572
+          ],
+          "points": 47.5
+        }
+      },
+      "engine_moves_analysed": 5135,
+      "games_with_sacrifice": {
+        "count": 77,
+        "of": 100,
+        "rate": 0.77,
+        "ci95": [
+          0.6785,
+          0.8416
+        ]
+      },
+      "sacrifices": 153,
+      "sacrifices_per_game": {
+        "n": 100,
+        "mean": 1.53,
+        "sd": 1.2099,
+        "ci95": [
+          1.2929,
+          1.7671
+        ]
+      },
+      "sacrifices_per_100_moves": 2.9796,
+      "sacrifices_per_game_histogram": {
+        "0": 23,
+        "1": 30,
+        "2": 25,
+        "3": 16,
+        "4": 5,
+        "5": 1
+      },
+      "categories": {
+        "queen": 2,
+        "exchange": 6,
+        "piece": 67,
+        "pawn": 78
+      },
+      "book_sacrifices": 0,
+      "intent_unknown": 0,
+      "intent_mate": 12,
+      "chained_sacrifices": 10,
+      "avg_chain_len": {
+        "n": 153,
+        "mean": 1.0654,
+        "sd": 0.248,
+        "ci95": [
+          1.0261,
+          1.1047
+        ]
+      },
+      "sacrifices_by_context": {
+        "balanced": 71,
+        "winning": 47,
+        "losing": 35,
+        "unknown": 0
+      },
+      "balanced_sacrifices_per_game": {
+        "n": 100,
+        "mean": 0.71,
+        "sd": 0.8444,
+        "ci95": [
+          0.5445,
+          0.8755
+        ]
+      },
+      "games_with_balanced_sacrifice": {
+        "count": 50,
+        "of": 100,
+        "rate": 0.5,
+        "ci95": [
+          0.4038,
+          0.5962
+        ]
+      },
+      "blunders": 168,
+      "blunders_per_game": {
+        "n": 100,
+        "mean": 1.68,
+        "sd": 1.205,
+        "ci95": [
+          1.4438,
+          1.9162
+        ]
+      },
+      "blunder_categories": {
+        "queen": 7,
+        "exchange": 11,
+        "piece": 107,
+        "pawn": 43
+      },
+      "blunders_collapsed": 107,
+      "forced_losses": 1,
+      "desperation_moves": 52,
+      "mates_after_sacrifice": {
+        "count": 19,
+        "of": 153,
+        "rate": 0.1242,
+        "ci95": [
+          0.081,
+          0.1858
+        ]
+      },
+      "successful_attacks": {
+        "count": 69,
+        "of": 153,
+        "rate": 0.451,
+        "ci95": [
+          0.3743,
+          0.5301
+        ]
+      },
+      "recouped": {
+        "count": 69,
+        "of": 153,
+        "rate": 0.451,
+        "ci95": [
+          0.3743,
+          0.5301
+        ]
+      },
+      "score_games_with_sacrifice": {
+        "games": 77,
+        "wins": 33,
+        "draws": 11,
+        "losses": 33,
+        "score": {
+          "n": 77,
+          "mean": 0.5,
+          "sd": 0.4659,
+          "ci95": [
+            0.391,
+            0.609
+          ],
+          "points": 38.5
+        }
+      },
+      "score_games_without_sacrifice": {
+        "games": 23,
+        "wins": 8,
+        "draws": 2,
+        "losses": 13,
+        "score": {
+          "n": 23,
+          "mean": 0.3913,
+          "sd": 0.4757,
+          "ci95": [
+            0.2216,
+            0.5921
+          ],
+          "points": 9.0
+        }
+      },
+      "sacrifice_game_result": {
+        "games": 153,
+        "wins": 60,
+        "draws": 29,
+        "losses": 64,
+        "score": {
+          "n": 153,
+          "mean": 0.4869,
+          "sd": 0.4514,
+          "ci95": [
+            0.409,
+            0.5655
+          ],
+          "points": 74.5
+        }
+      },
+      "avg_move_number": {
+        "n": 153,
+        "mean": 30.7255,
+        "sd": 22.0589,
+        "ci95": [
+          27.2302,
+          34.2208
+        ]
+      },
+      "sf_evaluated": 153,
+      "unsound": {
+        "count": 26,
+        "of": 153,
+        "rate": 0.1699,
+        "ci95": [
+          0.1187,
+          0.2374
+        ]
+      },
+      "practical_chances": {
+        "count": 14,
+        "of": 26,
+        "rate": 0.5385,
+        "ci95": [
+          0.3546,
+          0.7124
+        ]
+      },
+      "sound_sacrifices": {
+        "count": 127,
+        "of": 153,
+        "rate": 0.8301,
+        "ci95": [
+          0.7626,
+          0.8813
+        ]
+      },
+      "avg_sf_before": {
+        "n": 153,
+        "mean": 3.4706,
+        "sd": 1052.5546,
+        "ci95": [
+          -163.3106,
+          170.2518
+        ]
+      },
+      "avg_sf_after": {
+        "n": 153,
+        "mean": -64.9281,
+        "sd": 1099.9317,
+        "ci95": [
+          -239.2163,
+          109.3601
+        ]
+      },
+      "blunders_confirmed_by_sf": {
+        "count": 46,
+        "of": 168,
+        "rate": 0.2738,
+        "ci95": [
+          0.212,
+          0.3457
+        ]
+      },
+      "per_category": {
+        "queen": {
+          "count": 2,
+          "successful_attack": {
+            "count": 1,
+            "of": 2,
+            "rate": 0.5,
+            "ci95": [
+              0.0945,
+              0.9055
+            ]
+          },
+          "mate": {
+            "count": 1,
+            "of": 2,
+            "rate": 0.5,
+            "ci95": [
+              0.0945,
+              0.9055
+            ]
+          },
+          "recouped": {
+            "count": 0,
+            "of": 2,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.6576
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 2,
+            "wins": 1,
+            "draws": 0,
+            "losses": 1,
+            "score": {
+              "n": 2,
+              "mean": 0.5,
+              "sd": 0.7071,
+              "ci95": [
+                0.0945,
+                0.9055
+              ],
+              "points": 1.0
+            }
+          },
+          "avg_d4": {
+            "n": 2,
+            "mean": 650.0,
+            "sd": 353.5534,
+            "ci95": [
+              160.009,
+              1139.991
+            ]
+          },
+          "avg_move_number": {
+            "n": 2,
+            "mean": 33.5,
+            "sd": 9.1924,
+            "ci95": [
+              20.7602,
+              46.2398
+            ]
+          },
+          "sf_evaluated": 2,
+          "unsound": {
+            "count": 0,
+            "of": 2,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.6576
+            ]
+          },
+          "practical_chance": {
+            "count": 0,
+            "of": 0,
+            "rate": null,
+            "ci95": null
+          },
+          "avg_sf_drop": {
+            "n": 2,
+            "mean": 3.5,
+            "sd": 4.9497,
+            "ci95": [
+              -3.3599,
+              10.3599
+            ]
+          },
+          "avg_sf_after": {
+            "n": 2,
+            "mean": 1241.5,
+            "sd": 2486.8945,
+            "ci95": [
+              -2205.0967,
+              3000.0
+            ]
+          }
+        },
+        "exchange": {
+          "count": 6,
+          "successful_attack": {
+            "count": 3,
+            "of": 6,
+            "rate": 0.5,
+            "ci95": [
+              0.1876,
+              0.8124
+            ]
+          },
+          "mate": {
+            "count": 0,
+            "of": 6,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.3903
+            ]
+          },
+          "recouped": {
+            "count": 3,
+            "of": 6,
+            "rate": 0.5,
+            "ci95": [
+              0.1876,
+              0.8124
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 6,
+            "wins": 4,
+            "draws": 0,
+            "losses": 2,
+            "score": {
+              "n": 6,
+              "mean": 0.6667,
+              "sd": 0.5164,
+              "ci95": [
+                0.3,
+                0.9032
+              ],
+              "points": 4.0
+            }
+          },
+          "avg_d4": {
+            "n": 6,
+            "mean": 176.6667,
+            "sd": 5.164,
+            "ci95": [
+              172.5347,
+              180.7986
+            ]
+          },
+          "avg_move_number": {
+            "n": 6,
+            "mean": 22.1667,
+            "sd": 7.4677,
+            "ci95": [
+              16.1914,
+              28.142
+            ]
+          },
+          "sf_evaluated": 6,
+          "unsound": {
+            "count": 1,
+            "of": 6,
+            "rate": 0.1667,
+            "ci95": [
+              0.0301,
+              0.5635
+            ]
+          },
+          "practical_chance": {
+            "count": 0,
+            "of": 1,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.7935
+            ]
+          },
+          "avg_sf_drop": {
+            "n": 6,
+            "mean": 79.1667,
+            "sd": 115.7003,
+            "ci95": [
+              -13.4112,
+              171.7445
+            ]
+          },
+          "avg_sf_after": {
+            "n": 6,
+            "mean": -80.0,
+            "sd": 375.3883,
+            "ci95": [
+              -380.3677,
+              220.3677
+            ]
+          }
+        },
+        "piece": {
+          "count": 67,
+          "successful_attack": {
+            "count": 29,
+            "of": 67,
+            "rate": 0.4328,
+            "ci95": [
+              0.321,
+              0.5519
+            ]
+          },
+          "mate": {
+            "count": 13,
+            "of": 67,
+            "rate": 0.194,
+            "ci95": [
+              0.1171,
+              0.3042
+            ]
+          },
+          "recouped": {
+            "count": 28,
+            "of": 67,
+            "rate": 0.4179,
+            "ci95": [
+              0.3074,
+              0.5373
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 67,
+            "wins": 32,
+            "draws": 8,
+            "losses": 27,
+            "score": {
+              "n": 67,
+              "mean": 0.5373,
+              "sd": 0.4712,
+              "ci95": [
+                0.4192,
+                0.6514
+              ],
+              "points": 36.0
+            }
+          },
+          "avg_d4": {
+            "n": 67,
+            "mean": 320.597,
+            "sd": 91.9302,
+            "ci95": [
+              298.5845,
+              342.6095
+            ]
+          },
+          "avg_move_number": {
+            "n": 67,
+            "mean": 21.403,
+            "sd": 13.4807,
+            "ci95": [
+              18.1751,
+              24.6309
+            ]
+          },
+          "sf_evaluated": 67,
+          "unsound": {
+            "count": 21,
+            "of": 67,
+            "rate": 0.3134,
+            "ci95": [
+              0.2151,
+              0.432
+            ]
+          },
+          "practical_chance": {
+            "count": 12,
+            "of": 21,
+            "rate": 0.5714,
+            "ci95": [
+              0.3655,
+              0.7553
+            ]
+          },
+          "avg_sf_drop": {
+            "n": 67,
+            "mean": 70.806,
+            "sd": 468.3245,
+            "ci95": [
+              -41.3332,
+              182.9452
+            ]
+          },
+          "avg_sf_after": {
+            "n": 67,
+            "mean": 282.6567,
+            "sd": 1193.4522,
+            "ci95": [
+              -3.1127,
+              568.4261
+            ]
+          }
+        },
+        "pawn": {
+          "count": 78,
+          "successful_attack": {
+            "count": 36,
+            "of": 78,
+            "rate": 0.4615,
+            "ci95": [
+              0.3553,
+              0.5714
+            ]
+          },
+          "mate": {
+            "count": 5,
+            "of": 78,
+            "rate": 0.0641,
+            "ci95": [
+              0.0277,
+              0.1414
+            ]
+          },
+          "recouped": {
+            "count": 38,
+            "of": 78,
+            "rate": 0.4872,
+            "ci95": [
+              0.3795,
+              0.5961
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 78,
+            "wins": 23,
+            "draws": 21,
+            "losses": 34,
+            "score": {
+              "n": 78,
+              "mean": 0.4295,
+              "sd": 0.4243,
+              "ci95": [
+                0.3255,
+                0.5401
+              ],
+              "points": 33.5
+            }
+          },
+          "avg_d4": {
+            "n": 78,
+            "mean": 103.9744,
+            "sd": 19.3626,
+            "ci95": [
+              99.6774,
+              108.2713
+            ]
+          },
+          "avg_move_number": {
+            "n": 78,
+            "mean": 39.3205,
+            "sd": 25.3713,
+            "ci95": [
+              33.6901,
+              44.951
+            ]
+          },
+          "sf_evaluated": 78,
+          "unsound": {
+            "count": 4,
+            "of": 78,
+            "rate": 0.0513,
+            "ci95": [
+              0.0201,
+              0.1246
+            ]
+          },
+          "practical_chance": {
+            "count": 2,
+            "of": 4,
+            "rate": 0.5,
+            "ci95": [
+              0.15,
+              0.85
+            ]
+          },
+          "avg_sf_drop": {
+            "n": 78,
+            "mean": 67.1667,
+            "sd": 279.9195,
+            "ci95": [
+              5.0463,
+              129.287
+            ]
+          },
+          "avg_sf_after": {
+            "n": 78,
+            "mean": -395.8333,
+            "sd": 904.1887,
+            "ci95": [
+              -596.4929,
+              -195.1738
+            ]
+          }
+        }
+      }
+    },
+    "old": {
+      "games": 100,
+      "result": {
+        "games": 100,
+        "wins": 41,
+        "draws": 12,
+        "losses": 47,
+        "score": {
+          "n": 100,
+          "mean": 0.47,
+          "sd": 0.4704,
+          "ci95": [
+            0.3751,
+            0.5671
+          ],
+          "points": 47.0
+        }
+      },
+      "engine_moves_analysed": 5273,
+      "games_with_sacrifice": {
+        "count": 90,
+        "of": 100,
+        "rate": 0.9,
+        "ci95": [
+          0.8256,
+          0.9448
+        ]
+      },
+      "sacrifices": 189,
+      "sacrifices_per_game": {
+        "n": 100,
+        "mean": 1.89,
+        "sd": 1.1798,
+        "ci95": [
+          1.6588,
+          2.1212
+        ]
+      },
+      "sacrifices_per_100_moves": 3.5843,
+      "sacrifices_per_game_histogram": {
+        "0": 10,
+        "1": 30,
+        "2": 33,
+        "3": 18,
+        "4": 6,
+        "5": 3
+      },
+      "categories": {
+        "queen": 6,
+        "exchange": 11,
+        "piece": 70,
+        "pawn": 102
+      },
+      "book_sacrifices": 0,
+      "intent_unknown": 0,
+      "intent_mate": 15,
+      "chained_sacrifices": 15,
+      "avg_chain_len": {
+        "n": 189,
+        "mean": 1.0794,
+        "sd": 0.271,
+        "ci95": [
+          1.0407,
+          1.118
+        ]
+      },
+      "sacrifices_by_context": {
+        "balanced": 88,
+        "winning": 52,
+        "losing": 49,
+        "unknown": 0
+      },
+      "balanced_sacrifices_per_game": {
+        "n": 100,
+        "mean": 0.88,
+        "sd": 0.9351,
+        "ci95": [
+          0.6967,
+          1.0633
+        ]
+      },
+      "games_with_balanced_sacrifice": {
+        "count": 60,
+        "of": 100,
+        "rate": 0.6,
+        "ci95": [
+          0.502,
+          0.6906
+        ]
+      },
+      "blunders": 170,
+      "blunders_per_game": {
+        "n": 100,
+        "mean": 1.7,
+        "sd": 1.3446,
+        "ci95": [
+          1.4365,
+          1.9635
+        ]
+      },
+      "blunder_categories": {
+        "queen": 13,
+        "exchange": 12,
+        "piece": 97,
+        "pawn": 48
+      },
+      "blunders_collapsed": 112,
+      "forced_losses": 2,
+      "desperation_moves": 33,
+      "mates_after_sacrifice": {
+        "count": 34,
+        "of": 189,
+        "rate": 0.1799,
+        "ci95": [
+          0.1317,
+          0.2409
+        ]
+      },
+      "successful_attacks": {
+        "count": 88,
+        "of": 189,
+        "rate": 0.4656,
+        "ci95": [
+          0.3959,
+          0.5367
+        ]
+      },
+      "recouped": {
+        "count": 81,
+        "of": 189,
+        "rate": 0.4286,
+        "ci95": [
+          0.3601,
+          0.4999
+        ]
+      },
+      "score_games_with_sacrifice": {
+        "games": 90,
+        "wins": 40,
+        "draws": 11,
+        "losses": 39,
+        "score": {
+          "n": 90,
+          "mean": 0.5056,
+          "sd": 0.471,
+          "ci95": [
+            0.4042,
+            0.6065
+          ],
+          "points": 45.5
+        }
+      },
+      "score_games_without_sacrifice": {
+        "games": 10,
+        "wins": 1,
+        "draws": 1,
+        "losses": 8,
+        "score": {
+          "n": 10,
+          "mean": 0.15,
+          "sd": 0.3375,
+          "ci95": [
+            0.0354,
+            0.4588
+          ],
+          "points": 1.5
+        }
+      },
+      "sacrifice_game_result": {
+        "games": 189,
+        "wins": 77,
+        "draws": 28,
+        "losses": 84,
+        "score": {
+          "n": 189,
+          "mean": 0.4815,
+          "sd": 0.4623,
+          "ci95": [
+            0.4113,
+            0.5524
+          ],
+          "points": 91.0
+        }
+      },
+      "avg_move_number": {
+        "n": 189,
+        "mean": 33.3122,
+        "sd": 22.9294,
+        "ci95": [
+          30.0432,
+          36.5811
+        ]
+      },
+      "sf_evaluated": 189,
+      "unsound": {
+        "count": 27,
+        "of": 189,
+        "rate": 0.1429,
+        "ci95": [
+          0.1001,
+          0.1999
+        ]
+      },
+      "practical_chances": {
+        "count": 14,
+        "of": 27,
+        "rate": 0.5185,
+        "ci95": [
+          0.3399,
+          0.6926
+        ]
+      },
+      "sound_sacrifices": {
+        "count": 162,
+        "of": 189,
+        "rate": 0.8571,
+        "ci95": [
+          0.8001,
+          0.8999
+        ]
+      },
+      "avg_sf_before": {
+        "n": 189,
+        "mean": 65.2963,
+        "sd": 1081.9826,
+        "ci95": [
+          -88.9581,
+          219.5507
+        ]
+      },
+      "avg_sf_after": {
+        "n": 189,
+        "mean": -18.5026,
+        "sd": 1142.2202,
+        "ci95": [
+          -181.3449,
+          144.3396
+        ]
+      },
+      "blunders_confirmed_by_sf": {
+        "count": 41,
+        "of": 170,
+        "rate": 0.2412,
+        "ci95": [
+          0.183,
+          0.3107
+        ]
+      },
+      "per_category": {
+        "queen": {
+          "count": 6,
+          "successful_attack": {
+            "count": 4,
+            "of": 6,
+            "rate": 0.6667,
+            "ci95": [
+              0.3,
+              0.9032
+            ]
+          },
+          "mate": {
+            "count": 3,
+            "of": 6,
+            "rate": 0.5,
+            "ci95": [
+              0.1876,
+              0.8124
+            ]
+          },
+          "recouped": {
+            "count": 2,
+            "of": 6,
+            "rate": 0.3333,
+            "ci95": [
+              0.0968,
+              0.7
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 6,
+            "wins": 3,
+            "draws": 1,
+            "losses": 2,
+            "score": {
+              "n": 6,
+              "mean": 0.5833,
+              "sd": 0.4916,
+              "ci95": [
+                0.2411,
+                0.8605
+              ],
+              "points": 3.5
+            }
+          },
+          "avg_d4": {
+            "n": 6,
+            "mean": 733.3333,
+            "sd": 210.3014,
+            "ci95": [
+              565.0603,
+              901.6064
+            ]
+          },
+          "avg_move_number": {
+            "n": 6,
+            "mean": 40.6667,
+            "sd": 13.5745,
+            "ci95": [
+              29.805,
+              51.5283
+            ]
+          },
+          "sf_evaluated": 6,
+          "unsound": {
+            "count": 0,
+            "of": 6,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.3903
+            ]
+          },
+          "practical_chance": {
+            "count": 0,
+            "of": 0,
+            "rate": null,
+            "ci95": null
+          },
+          "avg_sf_drop": {
+            "n": 6,
+            "mean": 208.0,
+            "sd": 503.189,
+            "ci95": [
+              -194.6277,
+              610.6277
+            ]
+          },
+          "avg_sf_after": {
+            "n": 6,
+            "mean": 951.5,
+            "sd": 1793.5235,
+            "ci95": [
+              -483.5914,
+              2386.5914
+            ]
+          }
+        },
+        "exchange": {
+          "count": 11,
+          "successful_attack": {
+            "count": 7,
+            "of": 11,
+            "rate": 0.6364,
+            "ci95": [
+              0.3538,
+              0.8483
+            ]
+          },
+          "mate": {
+            "count": 3,
+            "of": 11,
+            "rate": 0.2727,
+            "ci95": [
+              0.0975,
+              0.5656
+            ]
+          },
+          "recouped": {
+            "count": 7,
+            "of": 11,
+            "rate": 0.6364,
+            "ci95": [
+              0.3538,
+              0.8483
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 11,
+            "wins": 3,
+            "draws": 3,
+            "losses": 5,
+            "score": {
+              "n": 11,
+              "mean": 0.4091,
+              "sd": 0.4369,
+              "ci95": [
+                0.1814,
+                0.6839
+              ],
+              "points": 4.5
+            }
+          },
+          "avg_d4": {
+            "n": 11,
+            "mean": 174.5455,
+            "sd": 5.2223,
+            "ci95": [
+              171.4593,
+              177.6316
+            ]
+          },
+          "avg_move_number": {
+            "n": 11,
+            "mean": 38.2727,
+            "sd": 25.7918,
+            "ci95": [
+              23.031,
+              53.5144
+            ]
+          },
+          "sf_evaluated": 11,
+          "unsound": {
+            "count": 0,
+            "of": 11,
+            "rate": 0.0,
+            "ci95": [
+              0.0,
+              0.2588
+            ]
+          },
+          "practical_chance": {
+            "count": 0,
+            "of": 0,
+            "rate": null,
+            "ci95": null
+          },
+          "avg_sf_drop": {
+            "n": 11,
+            "mean": -0.1818,
+            "sd": 134.3948,
+            "ci95": [
+              -79.6026,
+              79.239
+            ]
+          },
+          "avg_sf_after": {
+            "n": 11,
+            "mean": -43.7273,
+            "sd": 1412.278,
+            "ci95": [
+              -878.3149,
+              790.8603
+            ]
+          }
+        },
+        "piece": {
+          "count": 70,
+          "successful_attack": {
+            "count": 36,
+            "of": 70,
+            "rate": 0.5143,
+            "ci95": [
+              0.3995,
+              0.6275
+            ]
+          },
+          "mate": {
+            "count": 18,
+            "of": 70,
+            "rate": 0.2571,
+            "ci95": [
+              0.1693,
+              0.3703
+            ]
+          },
+          "recouped": {
+            "count": 26,
+            "of": 70,
+            "rate": 0.3714,
+            "ci95": [
+              0.2677,
+              0.4885
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 70,
+            "wins": 40,
+            "draws": 6,
+            "losses": 24,
+            "score": {
+              "n": 70,
+              "mean": 0.6143,
+              "sd": 0.4676,
+              "ci95": [
+                0.4972,
+                0.7195
+              ],
+              "points": 43.0
+            }
+          },
+          "avg_d4": {
+            "n": 70,
+            "mean": 333.2857,
+            "sd": 101.706,
+            "ci95": [
+              309.46,
+              357.1114
+            ]
+          },
+          "avg_move_number": {
+            "n": 70,
+            "mean": 24.7571,
+            "sd": 18.5257,
+            "ci95": [
+              20.4173,
+              29.097
+            ]
+          },
+          "sf_evaluated": 70,
+          "unsound": {
+            "count": 19,
+            "of": 70,
+            "rate": 0.2714,
+            "ci95": [
+              0.1812,
+              0.3854
+            ]
+          },
+          "practical_chance": {
+            "count": 11,
+            "of": 19,
+            "rate": 0.5789,
+            "ci95": [
+              0.3628,
+              0.7686
+            ]
+          },
+          "avg_sf_drop": {
+            "n": 70,
+            "mean": 82.4429,
+            "sd": 457.2381,
+            "ci95": [
+              -24.67,
+              189.5557
+            ]
+          },
+          "avg_sf_after": {
+            "n": 70,
+            "mean": 308.3143,
+            "sd": 1264.6401,
+            "ci95": [
+              12.059,
+              604.5695
+            ]
+          }
+        },
+        "pawn": {
+          "count": 102,
+          "successful_attack": {
+            "count": 41,
+            "of": 102,
+            "rate": 0.402,
+            "ci95": [
+              0.312,
+              0.499
+            ]
+          },
+          "mate": {
+            "count": 10,
+            "of": 102,
+            "rate": 0.098,
+            "ci95": [
+              0.0541,
+              0.1711
+            ]
+          },
+          "recouped": {
+            "count": 46,
+            "of": 102,
+            "rate": 0.451,
+            "ci95": [
+              0.3579,
+              0.5476
+            ]
+          },
+          "book": 0,
+          "intent_unknown": 0,
+          "game_result": {
+            "games": 102,
+            "wins": 31,
+            "draws": 18,
+            "losses": 53,
+            "score": {
+              "n": 102,
+              "mean": 0.3922,
+              "sd": 0.4429,
+              "ci95": [
+                0.303,
+                0.4892
+              ],
+              "points": 40.0
+            }
+          },
+          "avg_d4": {
+            "n": 102,
+            "mean": 105.0,
+            "sd": 21.6977,
+            "ci95": [
+              100.7892,
+              109.2108
+            ]
+          },
+          "avg_move_number": {
+            "n": 102,
+            "mean": 38.2157,
+            "sd": 24.2547,
+            "ci95": [
+              33.5087,
+              42.9227
+            ]
+          },
+          "sf_evaluated": 102,
+          "unsound": {
+            "count": 8,
+            "of": 102,
+            "rate": 0.0784,
+            "ci95": [
+              0.0403,
+              0.1472
+            ]
+          },
+          "practical_chance": {
+            "count": 3,
+            "of": 8,
+            "rate": 0.375,
+            "ci95": [
+              0.1368,
+              0.6943
+            ]
+          },
+          "avg_sf_drop": {
+            "n": 102,
+            "mean": 86.4804,
+            "sd": 318.5336,
+            "ci95": [
+              24.6641,
+              148.2967
+            ]
+          },
+          "avg_sf_after": {
+            "n": 102,
+            "mean": -297.1275,
+            "sd": 877.9377,
+            "ci95": [
+              -467.5047,
+              -126.7502
+            ]
+          }
+        }
+      }
+    }
+  },
+  "per_context": {
+    "aggro_new": {
+      "moves": {
+        "winning": 1467,
+        "unknown": 17,
+        "balanced": 2074,
+        "losing": 1577
+      },
+      "sacrifices": {
+        "winning": 47,
+        "balanced": 71,
+        "losing": 35
+      },
+      "blunders": {
+        "balanced": 76,
+        "losing": 64,
+        "winning": 28
+      }
+    },
+    "aggro_old": {
+      "moves": {
+        "unknown": 18,
+        "balanced": 2178,
+        "winning": 1445,
+        "losing": 1632
+      },
+      "sacrifices": {
+        "winning": 52,
+        "balanced": 88,
+        "losing": 49
+      },
+      "blunders": {
+        "balanced": 67,
+        "losing": 75,
+        "winning": 28
+      }
+    }
+  },
+  "per_opponent": {
+    "sf1800": {
+      "comparison": [
+        {
+          "metric": "Games analysed",
+          "key": "games",
+          "new": 40,
+          "old": 40,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Score (all games)",
+          "key": "result.score",
+          "new": {
+            "n": 40,
+            "mean": 0.4,
+            "sd": 0.4696,
+            "ci95": [
+              0.2635,
+              0.554
+            ],
+            "points": 16.0
+          },
+          "old": {
+            "n": 40,
+            "mean": 0.4625,
+            "sd": 0.4855,
+            "ci95": [
+              0.3182,
+              0.6134
+            ],
+            "points": 18.5
+          },
+          "diff": -0.0625,
+          "diff_ci95": [
+            -0.26599626307376234,
+            0.14859782937760743
+          ]
+        },
+        {
+          "metric": "Games with >= 1 sacrifice",
+          "key": "games_with_sacrifice",
+          "new": {
+            "count": 33,
+            "of": 40,
+            "rate": 0.825,
+            "ci95": [
+              0.6805,
+              0.9125
+            ]
+          },
+          "old": {
+            "count": 38,
+            "of": 40,
+            "rate": 0.95,
+            "ci95": [
+              0.835,
+              0.9862
+            ]
+          },
+          "diff": -0.125,
+          "diff_ci95": [
+            -0.2739602851453306,
+            0.01956209002808884
+          ]
+        },
+        {
+          "metric": "Sacrifices",
+          "key": "sacrifices",
+          "new": 68,
+          "old": 84,
+          "diff": -16,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Sacrifices per game",
+          "key": "sacrifices_per_game",
+          "new": {
+            "n": 40,
+            "mean": 1.7,
+            "sd": 1.2649,
+            "ci95": [
+              1.308,
+              2.092
+            ]
+          },
+          "old": {
+            "n": 40,
+            "mean": 2.1,
+            "sd": 1.2969,
+            "ci95": [
+              1.6981,
+              2.5019
+            ]
+          },
+          "diff": -0.40000000000000013,
+          "diff_ci95": [
+            -0.9614126591658394,
+            0.16141265916583913
+          ]
+        },
+        {
+          "metric": "Sacrifices per 100 engine moves",
+          "key": "sacrifices_per_100_moves",
+          "new": 3.0398,
+          "old": 3.5339,
+          "diff": -0.4941,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Balanced-position sacrifices per game (own eval within +-3)",
+          "key": "balanced_sacrifices_per_game",
+          "new": {
+            "n": 40,
+            "mean": 0.9,
+            "sd": 0.7442,
+            "ci95": [
+              0.6694,
+              1.1306
+            ]
+          },
+          "old": {
+            "n": 40,
+            "mean": 0.925,
+            "sd": 0.8883,
+            "ci95": [
+              0.6497,
+              1.2003
+            ]
+          },
+          "diff": -0.025000000000000022,
+          "diff_ci95": [
+            -0.3841216918488223,
+            0.33412169184882223
+          ]
+        },
+        {
+          "metric": "Games with a balanced-position sacrifice",
+          "key": "games_with_balanced_sacrifice",
+          "new": {
+            "count": 27,
+            "of": 40,
+            "rate": 0.675,
+            "ci95": [
+              0.5202,
+              0.7992
+            ]
+          },
+          "old": {
+            "count": 26,
+            "of": 40,
+            "rate": 0.65,
+            "ci95": [
+              0.4951,
+              0.7787
+            ]
+          },
+          "diff": 0.025000000000000022,
+          "diff_ci95": [
+            -0.17630090321385616,
+            0.2235478076465031
+          ]
+        },
+        {
+          "metric": "  queen sacrifices",
+          "key": "categories.queen",
+          "new": 1,
+          "old": 0,
+          "diff": 1,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  exchange sacrifices",
+          "key": "categories.exchange",
+          "new": 1,
+          "old": 4,
+          "diff": -3,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  piece sacrifices",
+          "key": "categories.piece",
+          "new": 27,
+          "old": 25,
+          "diff": 2,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  pawn sacrifices",
+          "key": "categories.pawn",
+          "new": 39,
+          "old": 55,
+          "diff": -16,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Context balanced / winning / losing / unknown",
+          "key": "sacrifices_by_context",
+          "new": {
+            "balanced": 36,
+            "winning": 7,
+            "losing": 25,
+            "unknown": 0
+          },
+          "old": {
+            "balanced": 37,
+            "winning": 16,
+            "losing": 31,
+            "unknown": 0
+          },
+          "diff": null,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Book-gambit sacrifices",
+          "key": "book_sacrifices",
+          "new": 0,
+          "old": 0,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Intent unknown (no score)",
+          "key": "intent_unknown",
+          "new": 0,
+          "old": 0,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Chained sacrifices (chain_len > 1)",
+          "key": "chained_sacrifices",
+          "new": 5,
+          "old": 3,
+          "diff": 2,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Blunders (filtered out)",
+          "key": "blunders",
+          "new": 74,
+          "old": 76,
+          "diff": -2,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  of which caused by the previous move (own eval had collapsed)",
+          "key": "blunders_collapsed",
+          "new": 38,
+          "old": 49,
+          "diff": -11,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Blunders per game",
+          "key": "blunders_per_game",
+          "new": {
+            "n": 40,
+            "mean": 1.85,
+            "sd": 1.272,
+            "ci95": [
+              1.4558,
+              2.2442
+            ]
+          },
+          "old": {
+            "n": 40,
+            "mean": 1.9,
+            "sd": 1.3166,
+            "ci95": [
+              1.492,
+              2.308
+            ]
+          },
+          "diff": -0.04999999999999982,
+          "diff_ci95": [
+            -0.6173257537277662,
+            0.5173257537277666
+          ]
+        },
+        {
+          "metric": "Forced material losses (single legal move; excluded)",
+          "key": "forced_losses",
+          "new": 1,
+          "old": 0,
+          "diff": 1,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Moves while being mated (desperation; excluded)",
+          "key": "desperation_moves",
+          "new": 24,
+          "old": 13,
+          "diff": 11,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Mate within 30 plies (of sacrifices)",
+          "key": "mates_after_sacrifice",
+          "new": {
+            "count": 5,
+            "of": 68,
+            "rate": 0.0735,
+            "ci95": [
+              0.0318,
+              0.1609
+            ]
+          },
+          "old": {
+            "count": 12,
+            "of": 84,
+            "rate": 0.1429,
+            "ci95": [
+              0.0837,
+              0.2333
+            ]
+          },
+          "diff": -0.0694,
+          "diff_ci95": [
+            -0.16892794133974265,
+            0.03617428684152202
+          ]
+        },
+        {
+          "metric": "Recouped within 24 plies",
+          "key": "recouped",
+          "new": {
+            "count": 24,
+            "of": 68,
+            "rate": 0.3529,
+            "ci95": [
+              0.25,
+              0.4716
+            ]
+          },
+          "old": {
+            "count": 36,
+            "of": 84,
+            "rate": 0.4286,
+            "ci95": [
+              0.3282,
+              0.5352
+            ]
+          },
+          "diff": -0.07569999999999999,
+          "diff_ci95": [
+            -0.22384957652080115,
+            0.07980434171562306
+          ]
+        },
+        {
+          "metric": "Successful attacks",
+          "key": "successful_attacks",
+          "new": {
+            "count": 19,
+            "of": 68,
+            "rate": 0.2794,
+            "ci95": [
+              0.1868,
+              0.3956
+            ]
+          },
+          "old": {
+            "count": 33,
+            "of": 84,
+            "rate": 0.3929,
+            "ci95": [
+              0.2953,
+              0.4998
+            ]
+          },
+          "diff": -0.11350000000000005,
+          "diff_ci95": [
+            -0.25491499180451827,
+            0.03829260114736199
+          ]
+        },
+        {
+          "metric": "Unsound (SF; of SF-evaluated sacrifices)",
+          "key": "unsound",
+          "new": {
+            "count": 12,
+            "of": 68,
+            "rate": 0.1765,
+            "ci95": [
+              0.1039,
+              0.2836
+            ]
+          },
+          "old": {
+            "count": 15,
+            "of": 84,
+            "rate": 0.1786,
+            "ci95": [
+              0.1113,
+              0.2739
+            ]
+          },
+          "diff": -0.0021000000000000185,
+          "diff_ci95": [
+            -0.12192260554709794,
+            0.12439619813869948
+          ]
+        },
+        {
+          "metric": "Practical chances (of unsound)",
+          "key": "practical_chances",
+          "new": {
+            "count": 5,
+            "of": 12,
+            "rate": 0.4167,
+            "ci95": [
+              0.1933,
+              0.6805
+            ]
+          },
+          "old": {
+            "count": 5,
+            "of": 15,
+            "rate": 0.3333,
+            "ci95": [
+              0.1518,
+              0.5829
+            ]
+          },
+          "diff": 0.08340000000000003,
+          "diff_ci95": [
+            -0.2515938444841487,
+            0.4035984689573459
+          ]
+        },
+        {
+          "metric": "Blunders confirmed by SF",
+          "key": "blunders_confirmed_by_sf",
+          "new": {
+            "count": 20,
+            "of": 74,
+            "rate": 0.2703,
+            "ci95": [
+              0.1823,
+              0.3809
+            ]
+          },
+          "old": {
+            "count": 18,
+            "of": 76,
+            "rate": 0.2368,
+            "ci95": [
+              0.1554,
+              0.3436
+            ]
+          },
+          "diff": 0.033499999999999974,
+          "diff_ci95": [
+            -0.10491406518236651,
+            0.17081669165303973
+          ]
+        },
+        {
+          "metric": "Score in games with a sacrifice",
+          "key": "score_games_with_sacrifice.score",
+          "new": {
+            "n": 33,
+            "mean": 0.3939,
+            "sd": 0.4636,
+            "ci95": [
+              0.2468,
+              0.5632
+            ],
+            "points": 13.0
+          },
+          "old": {
+            "n": 38,
+            "mean": 0.4868,
+            "sd": 0.4861,
+            "ci95": [
+              0.3366,
+              0.6395
+            ],
+            "points": 18.5
+          },
+          "diff": -0.09290000000000004,
+          "diff_ci95": [
+            -0.3049080579833426,
+            0.13339593954459184
+          ]
+        },
+        {
+          "metric": "Score in games without a sacrifice",
+          "key": "score_games_without_sacrifice.score",
+          "new": {
+            "n": 7,
+            "mean": 0.4286,
+            "sd": 0.5345,
+            "ci95": [
+              0.1582,
+              0.7495
+            ],
+            "points": 3.0
+          },
+          "old": {
+            "n": 2,
+            "mean": 0.0,
+            "sd": 0.0,
+            "ci95": [
+              0.0,
+              0.6576
+            ],
+            "points": 0.0
+          },
+          "diff": 0.4286,
+          "diff_ci95": [
+            -0.28245159758403465,
+            0.7495416372469643
+          ]
+        },
+        {
+          "metric": "Average move number of sacrifices",
+          "key": "avg_move_number",
+          "new": {
+            "n": 68,
+            "mean": 33.75,
+            "sd": 24.9718,
+            "ci95": [
+              27.8147,
+              39.6853
+            ]
+          },
+          "old": {
+            "n": 84,
+            "mean": 35.5833,
+            "sd": 23.8657,
+            "ci95": [
+              30.4797,
+              40.687
+            ]
+          },
+          "diff": -1.8333000000000013,
+          "diff_ci95": [
+            -9.66115860020063,
+            5.994558600200628
+          ]
+        },
+        {
+          "metric": "Average SF eval before the sacrifice (cp, engine view)",
+          "key": "avg_sf_before",
+          "new": {
+            "n": 68,
+            "mean": -394.2941,
+            "sd": 822.3342,
+            "ci95": [
+              -589.747,
+              -198.8413
+            ]
+          },
+          "old": {
+            "n": 84,
+            "mean": -237.0,
+            "sd": 722.3593,
+            "ci95": [
+              -391.4762,
+              -82.5238
+            ]
+          },
+          "diff": -157.29410000000001,
+          "diff_ci95": [
+            -406.4220301923285,
+            91.83383019232849
+          ]
+        },
+        {
+          "metric": "Average SF eval after the sacrifice (cp, engine view)",
+          "key": "avg_sf_after",
+          "new": {
+            "n": 68,
+            "mean": -507.9706,
+            "sd": 857.5438,
+            "ci95": [
+              -711.7921,
+              -304.1491
+            ]
+          },
+          "old": {
+            "n": 84,
+            "mean": -365.2143,
+            "sd": 831.1049,
+            "ci95": [
+              -542.9457,
+              -187.4828
+            ]
+          },
+          "diff": -142.7563,
+          "diff_ci95": [
+            -413.18496943826597,
+            127.67236943826595
+          ]
+        }
+      ],
+      "new": {
+        "games": 40,
+        "result": {
+          "games": 40,
+          "wins": 14,
+          "draws": 4,
+          "losses": 22,
+          "score": {
+            "n": 40,
+            "mean": 0.4,
+            "sd": 0.4696,
+            "ci95": [
+              0.2635,
+              0.554
+            ],
+            "points": 16.0
+          }
+        },
+        "engine_moves_analysed": 2237,
+        "games_with_sacrifice": {
+          "count": 33,
+          "of": 40,
+          "rate": 0.825,
+          "ci95": [
+            0.6805,
+            0.9125
+          ]
+        },
+        "sacrifices": 68,
+        "sacrifices_per_game": {
+          "n": 40,
+          "mean": 1.7,
+          "sd": 1.2649,
+          "ci95": [
+            1.308,
+            2.092
+          ]
+        },
+        "sacrifices_per_100_moves": 3.0398,
+        "sacrifices_per_game_histogram": {
+          "0": 7,
+          "1": 13,
+          "2": 9,
+          "3": 8,
+          "4": 2,
+          "5": 1
+        },
+        "categories": {
+          "queen": 1,
+          "exchange": 1,
+          "piece": 27,
+          "pawn": 39
+        },
+        "book_sacrifices": 0,
+        "intent_unknown": 0,
+        "intent_mate": 2,
+        "chained_sacrifices": 5,
+        "avg_chain_len": {
+          "n": 68,
+          "mean": 1.0735,
+          "sd": 0.2629,
+          "ci95": [
+            1.011,
+            1.136
+          ]
+        },
+        "sacrifices_by_context": {
+          "balanced": 36,
+          "winning": 7,
+          "losing": 25,
+          "unknown": 0
+        },
+        "balanced_sacrifices_per_game": {
+          "n": 40,
+          "mean": 0.9,
+          "sd": 0.7442,
+          "ci95": [
+            0.6694,
+            1.1306
+          ]
+        },
+        "games_with_balanced_sacrifice": {
+          "count": 27,
+          "of": 40,
+          "rate": 0.675,
+          "ci95": [
+            0.5202,
+            0.7992
+          ]
+        },
+        "blunders": 74,
+        "blunders_per_game": {
+          "n": 40,
+          "mean": 1.85,
+          "sd": 1.272,
+          "ci95": [
+            1.4558,
+            2.2442
+          ]
+        },
+        "blunder_categories": {
+          "queen": 2,
+          "exchange": 5,
+          "piece": 43,
+          "pawn": 24
+        },
+        "blunders_collapsed": 38,
+        "forced_losses": 1,
+        "desperation_moves": 24,
+        "mates_after_sacrifice": {
+          "count": 5,
+          "of": 68,
+          "rate": 0.0735,
+          "ci95": [
+            0.0318,
+            0.1609
+          ]
+        },
+        "successful_attacks": {
+          "count": 19,
+          "of": 68,
+          "rate": 0.2794,
+          "ci95": [
+            0.1868,
+            0.3956
+          ]
+        },
+        "recouped": {
+          "count": 24,
+          "of": 68,
+          "rate": 0.3529,
+          "ci95": [
+            0.25,
+            0.4716
+          ]
+        },
+        "score_games_with_sacrifice": {
+          "games": 33,
+          "wins": 11,
+          "draws": 4,
+          "losses": 18,
+          "score": {
+            "n": 33,
+            "mean": 0.3939,
+            "sd": 0.4636,
+            "ci95": [
+              0.2468,
+              0.5632
+            ],
+            "points": 13.0
+          }
+        },
+        "score_games_without_sacrifice": {
+          "games": 7,
+          "wins": 3,
+          "draws": 0,
+          "losses": 4,
+          "score": {
+            "n": 7,
+            "mean": 0.4286,
+            "sd": 0.5345,
+            "ci95": [
+              0.1582,
+              0.7495
+            ],
+            "points": 3.0
+          }
+        },
+        "sacrifice_game_result": {
+          "games": 68,
+          "wins": 20,
+          "draws": 10,
+          "losses": 38,
+          "score": {
+            "n": 68,
+            "mean": 0.3676,
+            "sd": 0.4457,
+            "ci95": [
+              0.263,
+              0.4864
+            ],
+            "points": 25.0
+          }
+        },
+        "avg_move_number": {
+          "n": 68,
+          "mean": 33.75,
+          "sd": 24.9718,
+          "ci95": [
+            27.8147,
+            39.6853
+          ]
+        },
+        "sf_evaluated": 68,
+        "unsound": {
+          "count": 12,
+          "of": 68,
+          "rate": 0.1765,
+          "ci95": [
+            0.1039,
+            0.2836
+          ]
+        },
+        "practical_chances": {
+          "count": 5,
+          "of": 12,
+          "rate": 0.4167,
+          "ci95": [
+            0.1933,
+            0.6805
+          ]
+        },
+        "sound_sacrifices": {
+          "count": 56,
+          "of": 68,
+          "rate": 0.8235,
+          "ci95": [
+            0.7164,
+            0.8961
+          ]
+        },
+        "avg_sf_before": {
+          "n": 68,
+          "mean": -394.2941,
+          "sd": 822.3342,
+          "ci95": [
+            -589.747,
+            -198.8413
+          ]
+        },
+        "avg_sf_after": {
+          "n": 68,
+          "mean": -507.9706,
+          "sd": 857.5438,
+          "ci95": [
+            -711.7921,
+            -304.1491
+          ]
+        },
+        "blunders_confirmed_by_sf": {
+          "count": 20,
+          "of": 74,
+          "rate": 0.2703,
+          "ci95": [
+            0.1823,
+            0.3809
+          ]
+        },
+        "per_category": {
+          "queen": {
+            "count": 1,
+            "successful_attack": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "mate": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "recouped": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 1,
+              "wins": 0,
+              "draws": 0,
+              "losses": 1,
+              "score": {
+                "n": 1,
+                "mean": 0.0,
+                "sd": 0.0,
+                "ci95": [
+                  0.0,
+                  0.7935
+                ],
+                "points": 0.0
+              }
+            },
+            "avg_d4": {
+              "n": 1,
+              "mean": 400.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "avg_move_number": {
+              "n": 1,
+              "mean": 40.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "sf_evaluated": 1,
+            "unsound": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 1,
+              "mean": 7.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "avg_sf_after": {
+              "n": 1,
+              "mean": -517.0,
+              "sd": 0.0,
+              "ci95": null
+            }
+          },
+          "exchange": {
+            "count": 1,
+            "successful_attack": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "mate": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "recouped": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 1,
+              "wins": 0,
+              "draws": 0,
+              "losses": 1,
+              "score": {
+                "n": 1,
+                "mean": 0.0,
+                "sd": 0.0,
+                "ci95": [
+                  0.0,
+                  0.7935
+                ],
+                "points": 0.0
+              }
+            },
+            "avg_d4": {
+              "n": 1,
+              "mean": 180.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "avg_move_number": {
+              "n": 1,
+              "mean": 33.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "sf_evaluated": 1,
+            "unsound": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 1,
+              "mean": 62.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "avg_sf_after": {
+              "n": 1,
+              "mean": -606.0,
+              "sd": 0.0,
+              "ci95": null
+            }
+          },
+          "piece": {
+            "count": 27,
+            "successful_attack": {
+              "count": 6,
+              "of": 27,
+              "rate": 0.2222,
+              "ci95": [
+                0.1061,
+                0.4076
+              ]
+            },
+            "mate": {
+              "count": 2,
+              "of": 27,
+              "rate": 0.0741,
+              "ci95": [
+                0.0206,
+                0.2337
+              ]
+            },
+            "recouped": {
+              "count": 8,
+              "of": 27,
+              "rate": 0.2963,
+              "ci95": [
+                0.1585,
+                0.4848
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 27,
+              "wins": 11,
+              "draws": 2,
+              "losses": 14,
+              "score": {
+                "n": 27,
+                "mean": 0.4444,
+                "sd": 0.487,
+                "ci95": [
+                  0.2759,
+                  0.6269
+                ],
+                "points": 12.0
+              }
+            },
+            "avg_d4": {
+              "n": 27,
+              "mean": 302.5926,
+              "sd": 90.3239,
+              "ci95": [
+                268.5229,
+                336.6623
+              ]
+            },
+            "avg_move_number": {
+              "n": 27,
+              "mean": 18.037,
+              "sd": 10.2225,
+              "ci95": [
+                14.1812,
+                21.8929
+              ]
+            },
+            "sf_evaluated": 27,
+            "unsound": {
+              "count": 11,
+              "of": 27,
+              "rate": 0.4074,
+              "ci95": [
+                0.2451,
+                0.5927
+              ]
+            },
+            "practical_chance": {
+              "count": 4,
+              "of": 11,
+              "rate": 0.3636,
+              "ci95": [
+                0.1517,
+                0.6462
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 27,
+              "mean": 168.3704,
+              "sd": 163.6258,
+              "ci95": [
+                106.6515,
+                230.0892
+              ]
+            },
+            "avg_sf_after": {
+              "n": 27,
+              "mean": -298.7037,
+              "sd": 314.0166,
+              "ci95": [
+                -417.1493,
+                -180.2581
+              ]
+            }
+          },
+          "pawn": {
+            "count": 39,
+            "successful_attack": {
+              "count": 13,
+              "of": 39,
+              "rate": 0.3333,
+              "ci95": [
+                0.2063,
+                0.4902
+              ]
+            },
+            "mate": {
+              "count": 3,
+              "of": 39,
+              "rate": 0.0769,
+              "ci95": [
+                0.0265,
+                0.2032
+              ]
+            },
+            "recouped": {
+              "count": 16,
+              "of": 39,
+              "rate": 0.4103,
+              "ci95": [
+                0.2708,
+                0.5658
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 39,
+              "wins": 9,
+              "draws": 8,
+              "losses": 22,
+              "score": {
+                "n": 39,
+                "mean": 0.3333,
+                "sd": 0.4189,
+                "ci95": [
+                  0.2063,
+                  0.4902
+                ],
+                "points": 13.0
+              }
+            },
+            "avg_d4": {
+              "n": 39,
+              "mean": 107.6923,
+              "sd": 26.9953,
+              "ci95": [
+                99.22,
+                116.1647
+              ]
+            },
+            "avg_move_number": {
+              "n": 39,
+              "mean": 44.4872,
+              "sd": 27.0777,
+              "ci95": [
+                35.989,
+                52.9854
+              ]
+            },
+            "sf_evaluated": 39,
+            "unsound": {
+              "count": 1,
+              "of": 39,
+              "rate": 0.0256,
+              "ci95": [
+                0.0045,
+                0.1318
+              ]
+            },
+            "practical_chance": {
+              "count": 1,
+              "of": 1,
+              "rate": 1.0,
+              "ci95": [
+                0.2065,
+                1.0
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 39,
+              "mean": 79.8718,
+              "sd": 371.6735,
+              "ci95": [
+                -36.7762,
+                196.5198
+              ]
+            },
+            "avg_sf_after": {
+              "n": 39,
+              "mean": -650.1026,
+              "sd": 1084.9064,
+              "ci95": [
+                -990.5955,
+                -309.6097
+              ]
+            }
+          }
+        }
+      },
+      "old": {
+        "games": 40,
+        "result": {
+          "games": 40,
+          "wins": 17,
+          "draws": 3,
+          "losses": 20,
+          "score": {
+            "n": 40,
+            "mean": 0.4625,
+            "sd": 0.4855,
+            "ci95": [
+              0.3182,
+              0.6134
+            ],
+            "points": 18.5
+          }
+        },
+        "engine_moves_analysed": 2377,
+        "games_with_sacrifice": {
+          "count": 38,
+          "of": 40,
+          "rate": 0.95,
+          "ci95": [
+            0.835,
+            0.9862
+          ]
+        },
+        "sacrifices": 84,
+        "sacrifices_per_game": {
+          "n": 40,
+          "mean": 2.1,
+          "sd": 1.2969,
+          "ci95": [
+            1.6981,
+            2.5019
+          ]
+        },
+        "sacrifices_per_100_moves": 3.5339,
+        "sacrifices_per_game_histogram": {
+          "0": 2,
+          "1": 13,
+          "2": 13,
+          "3": 6,
+          "4": 3,
+          "5": 3
+        },
+        "categories": {
+          "queen": 0,
+          "exchange": 4,
+          "piece": 25,
+          "pawn": 55
+        },
+        "book_sacrifices": 0,
+        "intent_unknown": 0,
+        "intent_mate": 1,
+        "chained_sacrifices": 3,
+        "avg_chain_len": {
+          "n": 84,
+          "mean": 1.0357,
+          "sd": 0.1867,
+          "ci95": [
+            0.9958,
+            1.0756
+          ]
+        },
+        "sacrifices_by_context": {
+          "balanced": 37,
+          "winning": 16,
+          "losing": 31,
+          "unknown": 0
+        },
+        "balanced_sacrifices_per_game": {
+          "n": 40,
+          "mean": 0.925,
+          "sd": 0.8883,
+          "ci95": [
+            0.6497,
+            1.2003
+          ]
+        },
+        "games_with_balanced_sacrifice": {
+          "count": 26,
+          "of": 40,
+          "rate": 0.65,
+          "ci95": [
+            0.4951,
+            0.7787
+          ]
+        },
+        "blunders": 76,
+        "blunders_per_game": {
+          "n": 40,
+          "mean": 1.9,
+          "sd": 1.3166,
+          "ci95": [
+            1.492,
+            2.308
+          ]
+        },
+        "blunder_categories": {
+          "queen": 3,
+          "exchange": 9,
+          "piece": 42,
+          "pawn": 22
+        },
+        "blunders_collapsed": 49,
+        "forced_losses": 0,
+        "desperation_moves": 13,
+        "mates_after_sacrifice": {
+          "count": 12,
+          "of": 84,
+          "rate": 0.1429,
+          "ci95": [
+            0.0837,
+            0.2333
+          ]
+        },
+        "successful_attacks": {
+          "count": 33,
+          "of": 84,
+          "rate": 0.3929,
+          "ci95": [
+            0.2953,
+            0.4998
+          ]
+        },
+        "recouped": {
+          "count": 36,
+          "of": 84,
+          "rate": 0.4286,
+          "ci95": [
+            0.3282,
+            0.5352
+          ]
+        },
+        "score_games_with_sacrifice": {
+          "games": 38,
+          "wins": 17,
+          "draws": 3,
+          "losses": 18,
+          "score": {
+            "n": 38,
+            "mean": 0.4868,
+            "sd": 0.4861,
+            "ci95": [
+              0.3366,
+              0.6395
+            ],
+            "points": 18.5
+          }
+        },
+        "score_games_without_sacrifice": {
+          "games": 2,
+          "wins": 0,
+          "draws": 0,
+          "losses": 2,
+          "score": {
+            "n": 2,
+            "mean": 0.0,
+            "sd": 0.0,
+            "ci95": [
+              0.0,
+              0.6576
+            ],
+            "points": 0.0
+          }
+        },
+        "sacrifice_game_result": {
+          "games": 84,
+          "wins": 33,
+          "draws": 7,
+          "losses": 44,
+          "score": {
+            "n": 84,
+            "mean": 0.4345,
+            "sd": 0.4771,
+            "ci95": [
+              0.3337,
+              0.5411
+            ],
+            "points": 36.5
+          }
+        },
+        "avg_move_number": {
+          "n": 84,
+          "mean": 35.5833,
+          "sd": 23.8657,
+          "ci95": [
+            30.4797,
+            40.687
+          ]
+        },
+        "sf_evaluated": 84,
+        "unsound": {
+          "count": 15,
+          "of": 84,
+          "rate": 0.1786,
+          "ci95": [
+            0.1113,
+            0.2739
+          ]
+        },
+        "practical_chances": {
+          "count": 5,
+          "of": 15,
+          "rate": 0.3333,
+          "ci95": [
+            0.1518,
+            0.5829
+          ]
+        },
+        "sound_sacrifices": {
+          "count": 69,
+          "of": 84,
+          "rate": 0.8214,
+          "ci95": [
+            0.7261,
+            0.8887
+          ]
+        },
+        "avg_sf_before": {
+          "n": 84,
+          "mean": -237.0,
+          "sd": 722.3593,
+          "ci95": [
+            -391.4762,
+            -82.5238
+          ]
+        },
+        "avg_sf_after": {
+          "n": 84,
+          "mean": -365.2143,
+          "sd": 831.1049,
+          "ci95": [
+            -542.9457,
+            -187.4828
+          ]
+        },
+        "blunders_confirmed_by_sf": {
+          "count": 18,
+          "of": 76,
+          "rate": 0.2368,
+          "ci95": [
+            0.1554,
+            0.3436
+          ]
+        },
+        "per_category": {
+          "queen": {
+            "count": 0,
+            "successful_attack": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "mate": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "recouped": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 0,
+              "wins": 0,
+              "draws": 0,
+              "losses": 0,
+              "score": {
+                "n": 0,
+                "mean": null,
+                "sd": null,
+                "ci95": null,
+                "points": 0.0
+              }
+            },
+            "avg_d4": {
+              "n": 0,
+              "mean": null,
+              "sd": null,
+              "ci95": null
+            },
+            "avg_move_number": {
+              "n": 0,
+              "mean": null,
+              "sd": null,
+              "ci95": null
+            },
+            "sf_evaluated": 0,
+            "unsound": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 0,
+              "mean": null,
+              "sd": null,
+              "ci95": null
+            },
+            "avg_sf_after": {
+              "n": 0,
+              "mean": null,
+              "sd": null,
+              "ci95": null
+            }
+          },
+          "exchange": {
+            "count": 4,
+            "successful_attack": {
+              "count": 3,
+              "of": 4,
+              "rate": 0.75,
+              "ci95": [
+                0.3006,
+                0.9544
+              ]
+            },
+            "mate": {
+              "count": 2,
+              "of": 4,
+              "rate": 0.5,
+              "ci95": [
+                0.15,
+                0.85
+              ]
+            },
+            "recouped": {
+              "count": 3,
+              "of": 4,
+              "rate": 0.75,
+              "ci95": [
+                0.3006,
+                0.9544
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 4,
+              "wins": 2,
+              "draws": 2,
+              "losses": 0,
+              "score": {
+                "n": 4,
+                "mean": 0.75,
+                "sd": 0.2887,
+                "ci95": [
+                  0.3006,
+                  0.9544
+                ],
+                "points": 3.0
+              }
+            },
+            "avg_d4": {
+              "n": 4,
+              "mean": 172.5,
+              "sd": 5.0,
+              "ci95": [
+                167.6001,
+                177.3999
+              ]
+            },
+            "avg_move_number": {
+              "n": 4,
+              "mean": 53.5,
+              "sd": 34.1614,
+              "ci95": [
+                20.0225,
+                86.9775
+              ]
+            },
+            "sf_evaluated": 4,
+            "unsound": {
+              "count": 0,
+              "of": 4,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.4899
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 4,
+              "mean": -17.25,
+              "sd": 233.6513,
+              "ci95": [
+                -246.224,
+                211.724
+              ]
+            },
+            "avg_sf_after": {
+              "n": 4,
+              "mean": 289.5,
+              "sd": 556.7223,
+              "ci95": [
+                -256.0778,
+                835.0778
+              ]
+            }
+          },
+          "piece": {
+            "count": 25,
+            "successful_attack": {
+              "count": 8,
+              "of": 25,
+              "rate": 0.32,
+              "ci95": [
+                0.1721,
+                0.5159
+              ]
+            },
+            "mate": {
+              "count": 5,
+              "of": 25,
+              "rate": 0.2,
+              "ci95": [
+                0.0886,
+                0.3913
+              ]
+            },
+            "recouped": {
+              "count": 6,
+              "of": 25,
+              "rate": 0.24,
+              "ci95": [
+                0.115,
+                0.4343
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 25,
+              "wins": 13,
+              "draws": 1,
+              "losses": 11,
+              "score": {
+                "n": 25,
+                "mean": 0.54,
+                "sd": 0.4983,
+                "ci95": [
+                  0.3527,
+                  0.7166
+                ],
+                "points": 13.5
+              }
+            },
+            "avg_d4": {
+              "n": 25,
+              "mean": 309.6,
+              "sd": 100.5187,
+              "ci95": [
+                270.1974,
+                349.0026
+              ]
+            },
+            "avg_move_number": {
+              "n": 25,
+              "mean": 27.44,
+              "sd": 26.4135,
+              "ci95": [
+                17.0861,
+                37.7939
+              ]
+            },
+            "sf_evaluated": 25,
+            "unsound": {
+              "count": 8,
+              "of": 25,
+              "rate": 0.32,
+              "ci95": [
+                0.1721,
+                0.5159
+              ]
+            },
+            "practical_chance": {
+              "count": 2,
+              "of": 8,
+              "rate": 0.25,
+              "ci95": [
+                0.0715,
+                0.5907
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 25,
+              "mean": 142.68,
+              "sd": 169.0561,
+              "ci95": [
+                76.4112,
+                208.9488
+              ]
+            },
+            "avg_sf_after": {
+              "n": 25,
+              "mean": -173.72,
+              "sd": 919.6867,
+              "ci95": [
+                -534.2305,
+                186.7905
+              ]
+            }
+          },
+          "pawn": {
+            "count": 55,
+            "successful_attack": {
+              "count": 22,
+              "of": 55,
+              "rate": 0.4,
+              "ci95": [
+                0.2812,
+                0.5319
+              ]
+            },
+            "mate": {
+              "count": 5,
+              "of": 55,
+              "rate": 0.0909,
+              "ci95": [
+                0.0395,
+                0.1958
+              ]
+            },
+            "recouped": {
+              "count": 27,
+              "of": 55,
+              "rate": 0.4909,
+              "ci95": [
+                0.3638,
+                0.6192
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 55,
+              "wins": 18,
+              "draws": 4,
+              "losses": 33,
+              "score": {
+                "n": 55,
+                "mean": 0.3636,
+                "sd": 0.466,
+                "ci95": [
+                  0.2493,
+                  0.4958
+                ],
+                "points": 20.0
+              }
+            },
+            "avg_d4": {
+              "n": 55,
+              "mean": 103.6364,
+              "sd": 18.8919,
+              "ci95": [
+                98.6436,
+                108.6291
+              ]
+            },
+            "avg_move_number": {
+              "n": 55,
+              "mean": 37.9818,
+              "sd": 20.981,
+              "ci95": [
+                32.4369,
+                43.5267
+              ]
+            },
+            "sf_evaluated": 55,
+            "unsound": {
+              "count": 7,
+              "of": 55,
+              "rate": 0.1273,
+              "ci95": [
+                0.063,
+                0.2402
+              ]
+            },
+            "practical_chance": {
+              "count": 3,
+              "of": 7,
+              "rate": 0.4286,
+              "ci95": [
+                0.1582,
+                0.7495
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 55,
+              "mean": 132.2182,
+              "sd": 424.1121,
+              "ci95": [
+                20.1332,
+                244.3032
+              ]
+            },
+            "avg_sf_after": {
+              "n": 55,
+              "mean": -499.8727,
+              "sd": 775.4662,
+              "ci95": [
+                -704.8141,
+                -294.9314
+              ]
+            }
+          }
+        }
+      }
+    },
+    "head-to-head": {
+      "comparison": [
+        {
+          "metric": "Games analysed",
+          "key": "games",
+          "new": 60,
+          "old": 60,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Score (all games)",
+          "key": "result.score",
+          "new": {
+            "n": 60,
+            "mean": 0.525,
+            "sd": 0.4642,
+            "ci95": [
+              0.401,
+              0.646
+            ],
+            "points": 31.5
+          },
+          "old": {
+            "n": 60,
+            "mean": 0.475,
+            "sd": 0.4642,
+            "ci95": [
+              0.354,
+              0.599
+            ],
+            "points": 28.5
+          },
+          "diff": 0.050000000000000044,
+          "diff_ci95": [
+            -0.12537645835766578,
+            0.2211216658259596
+          ]
+        },
+        {
+          "metric": "Games with >= 1 sacrifice",
+          "key": "games_with_sacrifice",
+          "new": {
+            "count": 44,
+            "of": 60,
+            "rate": 0.7333,
+            "ci95": [
+              0.6099,
+              0.8287
+            ]
+          },
+          "old": {
+            "count": 52,
+            "of": 60,
+            "rate": 0.8667,
+            "ci95": [
+              0.7583,
+              0.9309
+            ]
+          },
+          "diff": -0.13340000000000007,
+          "diff_ci95": [
+            -0.2724493093948178,
+            0.010967092759558122
+          ]
+        },
+        {
+          "metric": "Sacrifices",
+          "key": "sacrifices",
+          "new": 85,
+          "old": 105,
+          "diff": -20,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Sacrifices per game",
+          "key": "sacrifices_per_game",
+          "new": {
+            "n": 60,
+            "mean": 1.4167,
+            "sd": 1.1687,
+            "ci95": [
+              1.121,
+              1.7124
+            ]
+          },
+          "old": {
+            "n": 60,
+            "mean": 1.75,
+            "sd": 1.0834,
+            "ci95": [
+              1.4759,
+              2.0241
+            ]
+          },
+          "diff": -0.33329999999999993,
+          "diff_ci95": [
+            -0.7365333393373135,
+            0.0699333393373136
+          ]
+        },
+        {
+          "metric": "Sacrifices per 100 engine moves",
+          "key": "sacrifices_per_100_moves",
+          "new": 2.9331,
+          "old": 3.6257,
+          "diff": -0.6926000000000001,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Balanced-position sacrifices per game (own eval within +-3)",
+          "key": "balanced_sacrifices_per_game",
+          "new": {
+            "n": 60,
+            "mean": 0.5833,
+            "sd": 0.8886,
+            "ci95": [
+              0.3585,
+              0.8082
+            ]
+          },
+          "old": {
+            "n": 60,
+            "mean": 0.85,
+            "sd": 0.9712,
+            "ci95": [
+              0.6043,
+              1.0957
+            ]
+          },
+          "diff": -0.26669999999999994,
+          "diff_ci95": [
+            -0.5997823547560379,
+            0.0663823547560381
+          ]
+        },
+        {
+          "metric": "Games with a balanced-position sacrifice",
+          "key": "games_with_balanced_sacrifice",
+          "new": {
+            "count": 23,
+            "of": 60,
+            "rate": 0.3833,
+            "ci95": [
+              0.2709,
+              0.5098
+            ]
+          },
+          "old": {
+            "count": 34,
+            "of": 60,
+            "rate": 0.5667,
+            "ci95": [
+              0.441,
+              0.6843
+            ]
+          },
+          "diff": -0.1834,
+          "diff_ci95": [
+            -0.3460511958303406,
+            -0.005054424558661952
+          ]
+        },
+        {
+          "metric": "  queen sacrifices",
+          "key": "categories.queen",
+          "new": 1,
+          "old": 6,
+          "diff": -5,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  exchange sacrifices",
+          "key": "categories.exchange",
+          "new": 5,
+          "old": 7,
+          "diff": -2,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  piece sacrifices",
+          "key": "categories.piece",
+          "new": 40,
+          "old": 45,
+          "diff": -5,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  pawn sacrifices",
+          "key": "categories.pawn",
+          "new": 39,
+          "old": 47,
+          "diff": -8,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Context balanced / winning / losing / unknown",
+          "key": "sacrifices_by_context",
+          "new": {
+            "balanced": 35,
+            "winning": 40,
+            "losing": 10,
+            "unknown": 0
+          },
+          "old": {
+            "balanced": 51,
+            "winning": 36,
+            "losing": 18,
+            "unknown": 0
+          },
+          "diff": null,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Book-gambit sacrifices",
+          "key": "book_sacrifices",
+          "new": 0,
+          "old": 0,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Intent unknown (no score)",
+          "key": "intent_unknown",
+          "new": 0,
+          "old": 0,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Chained sacrifices (chain_len > 1)",
+          "key": "chained_sacrifices",
+          "new": 5,
+          "old": 12,
+          "diff": -7,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Blunders (filtered out)",
+          "key": "blunders",
+          "new": 94,
+          "old": 94,
+          "diff": 0,
+          "diff_ci95": null
+        },
+        {
+          "metric": "  of which caused by the previous move (own eval had collapsed)",
+          "key": "blunders_collapsed",
+          "new": 69,
+          "old": 63,
+          "diff": 6,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Blunders per game",
+          "key": "blunders_per_game",
+          "new": {
+            "n": 60,
+            "mean": 1.5667,
+            "sd": 1.1552,
+            "ci95": [
+              1.2744,
+              1.859
+            ]
+          },
+          "old": {
+            "n": 60,
+            "mean": 1.5667,
+            "sd": 1.3575,
+            "ci95": [
+              1.2232,
+              1.9102
+            ]
+          },
+          "diff": 0.0,
+          "diff_ci95": [
+            -0.451025526390556,
+            0.451025526390556
+          ]
+        },
+        {
+          "metric": "Forced material losses (single legal move; excluded)",
+          "key": "forced_losses",
+          "new": 0,
+          "old": 2,
+          "diff": -2,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Moves while being mated (desperation; excluded)",
+          "key": "desperation_moves",
+          "new": 28,
+          "old": 20,
+          "diff": 8,
+          "diff_ci95": null
+        },
+        {
+          "metric": "Mate within 30 plies (of sacrifices)",
+          "key": "mates_after_sacrifice",
+          "new": {
+            "count": 14,
+            "of": 85,
+            "rate": 0.1647,
+            "ci95": [
+              0.1007,
+              0.2577
+            ]
+          },
+          "old": {
+            "count": 22,
+            "of": 105,
+            "rate": 0.2095,
+            "ci95": [
+              0.1426,
+              0.2969
+            ]
+          },
+          "diff": -0.04479999999999998,
+          "diff_ci95": [
+            -0.15312787156790253,
+            0.06971937255102095
+          ]
+        },
+        {
+          "metric": "Recouped within 24 plies",
+          "key": "recouped",
+          "new": {
+            "count": 45,
+            "of": 85,
+            "rate": 0.5294,
+            "ci95": [
+              0.4243,
+              0.6319
+            ]
+          },
+          "old": {
+            "count": 45,
+            "of": 105,
+            "rate": 0.4286,
+            "ci95": [
+              0.3381,
+              0.5241
+            ]
+          },
+          "diff": 0.1008,
+          "diff_ci95": [
+            -0.04116247909584489,
+            0.23758433143979615
+          ]
+        },
+        {
+          "metric": "Successful attacks",
+          "key": "successful_attacks",
+          "new": {
+            "count": 50,
+            "of": 85,
+            "rate": 0.5882,
+            "ci95": [
+              0.482,
+              0.6868
+            ]
+          },
+          "old": {
+            "count": 55,
+            "of": 105,
+            "rate": 0.5238,
+            "ci95": [
+              0.4291,
+              0.6168
+            ]
+          },
+          "diff": 0.0643999999999999,
+          "diff_ci95": [
+            -0.07675144924343041,
+            0.20111347149839434
+          ]
+        },
+        {
+          "metric": "Unsound (SF; of SF-evaluated sacrifices)",
+          "key": "unsound",
+          "new": {
+            "count": 14,
+            "of": 85,
+            "rate": 0.1647,
+            "ci95": [
+              0.1007,
+              0.2577
+            ]
+          },
+          "old": {
+            "count": 12,
+            "of": 105,
+            "rate": 0.1143,
+            "ci95": [
+              0.0666,
+              0.1892
+            ]
+          },
+          "diff": 0.050400000000000014,
+          "diff_ci95": [
+            -0.048098572149183255,
+            0.15491400673727596
+          ]
+        },
+        {
+          "metric": "Practical chances (of unsound)",
+          "key": "practical_chances",
+          "new": {
+            "count": 9,
+            "of": 14,
+            "rate": 0.6429,
+            "ci95": [
+              0.3876,
+              0.8366
+            ]
+          },
+          "old": {
+            "count": 9,
+            "of": 12,
+            "rate": 0.75,
+            "ci95": [
+              0.4677,
+              0.9111
+            ]
+          },
+          "diff": -0.10709999999999997,
+          "diff_ci95": [
+            -0.40892658380873864,
+            0.23522283303265162
+          ]
+        },
+        {
+          "metric": "Blunders confirmed by SF",
+          "key": "blunders_confirmed_by_sf",
+          "new": {
+            "count": 26,
+            "of": 94,
+            "rate": 0.2766,
+            "ci95": [
+              0.1963,
+              0.3744
+            ]
+          },
+          "old": {
+            "count": 23,
+            "of": 94,
+            "rate": 0.2447,
+            "ci95": [
+              0.1689,
+              0.3405
+            ]
+          },
+          "diff": 0.03190000000000001,
+          "diff_ci95": [
+            -0.09308130439715108,
+            0.15564767847109118
+          ]
+        },
+        {
+          "metric": "Score in games with a sacrifice",
+          "key": "score_games_with_sacrifice.score",
+          "new": {
+            "n": 44,
+            "mean": 0.5795,
+            "sd": 0.4568,
+            "ci95": [
+              0.4331,
+              0.7132
+            ],
+            "points": 25.5
+          },
+          "old": {
+            "n": 52,
+            "mean": 0.5192,
+            "sd": 0.464,
+            "ci95": [
+              0.3869,
+              0.649
+            ],
+            "points": 27.0
+          },
+          "diff": 0.06030000000000002,
+          "diff_ci95": [
+            -0.13530102195342236,
+            0.24841460560998777
+          ]
+        },
+        {
+          "metric": "Score in games without a sacrifice",
+          "key": "score_games_without_sacrifice.score",
+          "new": {
+            "n": 16,
+            "mean": 0.375,
+            "sd": 0.4655,
+            "ci95": [
+              0.1848,
+              0.6136
+            ],
+            "points": 6.0
+          },
+          "old": {
+            "n": 8,
+            "mean": 0.1875,
+            "sd": 0.372,
+            "ci95": [
+              0.0445,
+              0.5332
+            ],
+            "points": 1.5
+          },
+          "diff": 0.1875,
+          "diff_ci95": [
+            -0.20707232644970863,
+            0.46563924235937587
+          ]
+        },
+        {
+          "metric": "Average move number of sacrifices",
+          "key": "avg_move_number",
+          "new": {
+            "n": 85,
+            "mean": 28.3059,
+            "sd": 19.2298,
+            "ci95": [
+              24.2179,
+              32.3939
+            ]
+          },
+          "old": {
+            "n": 105,
+            "mean": 31.4952,
+            "sd": 22.0986,
+            "ci95": [
+              27.2684,
+              35.7221
+            ]
+          },
+          "diff": -3.1892999999999994,
+          "diff_ci95": [
+            -9.069632553053655,
+            2.691032553053656
+          ]
+        },
+        {
+          "metric": "Average SF eval before the sacrifice (cp, engine view)",
+          "key": "avg_sf_before",
+          "new": {
+            "n": 85,
+            "mean": 321.6824,
+            "sd": 1111.2148,
+            "ci95": [
+              85.4515,
+              557.9132
+            ]
+          },
+          "old": {
+            "n": 105,
+            "mean": 307.1333,
+            "sd": 1251.7767,
+            "ci95": [
+              67.7024,
+              546.5643
+            ]
+          },
+          "diff": 14.549099999999953,
+          "diff_ci95": [
+            -321.8022174828868,
+            350.9004174828867
+          ]
+        },
+        {
+          "metric": "Average SF eval after the sacrifice (cp, engine view)",
+          "key": "avg_sf_after",
+          "new": {
+            "n": 85,
+            "mean": 289.5059,
+            "sd": 1147.4667,
+            "ci95": [
+              45.5683,
+              533.4435
+            ]
+          },
+          "old": {
+            "n": 105,
+            "mean": 258.8667,
+            "sd": 1277.6585,
+            "ci95": [
+              14.4852,
+              503.2481
+            ]
+          },
+          "diff": 30.639200000000017,
+          "diff_ci95": [
+            -314.6546431908238,
+            375.9330431908238
+          ]
+        }
+      ],
+      "new": {
+        "games": 60,
+        "result": {
+          "games": 60,
+          "wins": 27,
+          "draws": 9,
+          "losses": 24,
+          "score": {
+            "n": 60,
+            "mean": 0.525,
+            "sd": 0.4642,
+            "ci95": [
+              0.401,
+              0.646
+            ],
+            "points": 31.5
+          }
+        },
+        "engine_moves_analysed": 2898,
+        "games_with_sacrifice": {
+          "count": 44,
+          "of": 60,
+          "rate": 0.7333,
+          "ci95": [
+            0.6099,
+            0.8287
+          ]
+        },
+        "sacrifices": 85,
+        "sacrifices_per_game": {
+          "n": 60,
+          "mean": 1.4167,
+          "sd": 1.1687,
+          "ci95": [
+            1.121,
+            1.7124
+          ]
+        },
+        "sacrifices_per_100_moves": 2.9331,
+        "sacrifices_per_game_histogram": {
+          "0": 16,
+          "1": 17,
+          "2": 16,
+          "3": 8,
+          "4": 3
+        },
+        "categories": {
+          "queen": 1,
+          "exchange": 5,
+          "piece": 40,
+          "pawn": 39
+        },
+        "book_sacrifices": 0,
+        "intent_unknown": 0,
+        "intent_mate": 10,
+        "chained_sacrifices": 5,
+        "avg_chain_len": {
+          "n": 85,
+          "mean": 1.0588,
+          "sd": 0.2367,
+          "ci95": [
+            1.0085,
+            1.1091
+          ]
+        },
+        "sacrifices_by_context": {
+          "balanced": 35,
+          "winning": 40,
+          "losing": 10,
+          "unknown": 0
+        },
+        "balanced_sacrifices_per_game": {
+          "n": 60,
+          "mean": 0.5833,
+          "sd": 0.8886,
+          "ci95": [
+            0.3585,
+            0.8082
+          ]
+        },
+        "games_with_balanced_sacrifice": {
+          "count": 23,
+          "of": 60,
+          "rate": 0.3833,
+          "ci95": [
+            0.2709,
+            0.5098
+          ]
+        },
+        "blunders": 94,
+        "blunders_per_game": {
+          "n": 60,
+          "mean": 1.5667,
+          "sd": 1.1552,
+          "ci95": [
+            1.2744,
+            1.859
+          ]
+        },
+        "blunder_categories": {
+          "queen": 5,
+          "exchange": 6,
+          "piece": 64,
+          "pawn": 19
+        },
+        "blunders_collapsed": 69,
+        "forced_losses": 0,
+        "desperation_moves": 28,
+        "mates_after_sacrifice": {
+          "count": 14,
+          "of": 85,
+          "rate": 0.1647,
+          "ci95": [
+            0.1007,
+            0.2577
+          ]
+        },
+        "successful_attacks": {
+          "count": 50,
+          "of": 85,
+          "rate": 0.5882,
+          "ci95": [
+            0.482,
+            0.6868
+          ]
+        },
+        "recouped": {
+          "count": 45,
+          "of": 85,
+          "rate": 0.5294,
+          "ci95": [
+            0.4243,
+            0.6319
+          ]
+        },
+        "score_games_with_sacrifice": {
+          "games": 44,
+          "wins": 22,
+          "draws": 7,
+          "losses": 15,
+          "score": {
+            "n": 44,
+            "mean": 0.5795,
+            "sd": 0.4568,
+            "ci95": [
+              0.4331,
+              0.7132
+            ],
+            "points": 25.5
+          }
+        },
+        "score_games_without_sacrifice": {
+          "games": 16,
+          "wins": 5,
+          "draws": 2,
+          "losses": 9,
+          "score": {
+            "n": 16,
+            "mean": 0.375,
+            "sd": 0.4655,
+            "ci95": [
+              0.1848,
+              0.6136
+            ],
+            "points": 6.0
+          }
+        },
+        "sacrifice_game_result": {
+          "games": 85,
+          "wins": 40,
+          "draws": 19,
+          "losses": 26,
+          "score": {
+            "n": 85,
+            "mean": 0.5824,
+            "sd": 0.4354,
+            "ci95": [
+              0.4762,
+              0.6814
+            ],
+            "points": 49.5
+          }
+        },
+        "avg_move_number": {
+          "n": 85,
+          "mean": 28.3059,
+          "sd": 19.2298,
+          "ci95": [
+            24.2179,
+            32.3939
+          ]
+        },
+        "sf_evaluated": 85,
+        "unsound": {
+          "count": 14,
+          "of": 85,
+          "rate": 0.1647,
+          "ci95": [
+            0.1007,
+            0.2577
+          ]
+        },
+        "practical_chances": {
+          "count": 9,
+          "of": 14,
+          "rate": 0.6429,
+          "ci95": [
+            0.3876,
+            0.8366
+          ]
+        },
+        "sound_sacrifices": {
+          "count": 71,
+          "of": 85,
+          "rate": 0.8353,
+          "ci95": [
+            0.7423,
+            0.8993
+          ]
+        },
+        "avg_sf_before": {
+          "n": 85,
+          "mean": 321.6824,
+          "sd": 1111.2148,
+          "ci95": [
+            85.4515,
+            557.9132
+          ]
+        },
+        "avg_sf_after": {
+          "n": 85,
+          "mean": 289.5059,
+          "sd": 1147.4667,
+          "ci95": [
+            45.5683,
+            533.4435
+          ]
+        },
+        "blunders_confirmed_by_sf": {
+          "count": 26,
+          "of": 94,
+          "rate": 0.2766,
+          "ci95": [
+            0.1963,
+            0.3744
+          ]
+        },
+        "per_category": {
+          "queen": {
+            "count": 1,
+            "successful_attack": {
+              "count": 1,
+              "of": 1,
+              "rate": 1.0,
+              "ci95": [
+                0.2065,
+                1.0
+              ]
+            },
+            "mate": {
+              "count": 1,
+              "of": 1,
+              "rate": 1.0,
+              "ci95": [
+                0.2065,
+                1.0
+              ]
+            },
+            "recouped": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 1,
+              "wins": 1,
+              "draws": 0,
+              "losses": 0,
+              "score": {
+                "n": 1,
+                "mean": 1.0,
+                "sd": 0.0,
+                "ci95": [
+                  0.2065,
+                  1.0
+                ],
+                "points": 1.0
+              }
+            },
+            "avg_d4": {
+              "n": 1,
+              "mean": 900.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "avg_move_number": {
+              "n": 1,
+              "mean": 27.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "sf_evaluated": 1,
+            "unsound": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 1,
+              "mean": 0.0,
+              "sd": 0.0,
+              "ci95": null
+            },
+            "avg_sf_after": {
+              "n": 1,
+              "mean": 3000.0,
+              "sd": 0.0,
+              "ci95": null
+            }
+          },
+          "exchange": {
+            "count": 5,
+            "successful_attack": {
+              "count": 3,
+              "of": 5,
+              "rate": 0.6,
+              "ci95": [
+                0.2307,
+                0.8824
+              ]
+            },
+            "mate": {
+              "count": 0,
+              "of": 5,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.4345
+              ]
+            },
+            "recouped": {
+              "count": 3,
+              "of": 5,
+              "rate": 0.6,
+              "ci95": [
+                0.2307,
+                0.8824
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 5,
+              "wins": 4,
+              "draws": 0,
+              "losses": 1,
+              "score": {
+                "n": 5,
+                "mean": 0.8,
+                "sd": 0.4472,
+                "ci95": [
+                  0.3755,
+                  0.9638
+                ],
+                "points": 4.0
+              }
+            },
+            "avg_d4": {
+              "n": 5,
+              "mean": 176.0,
+              "sd": 5.4772,
+              "ci95": [
+                171.1991,
+                180.8009
+              ]
+            },
+            "avg_move_number": {
+              "n": 5,
+              "mean": 20.0,
+              "sd": 5.8737,
+              "ci95": [
+                14.8516,
+                25.1484
+              ]
+            },
+            "sf_evaluated": 5,
+            "unsound": {
+              "count": 1,
+              "of": 5,
+              "rate": 0.2,
+              "ci95": [
+                0.0362,
+                0.6245
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 5,
+              "mean": 82.6,
+              "sd": 129.0147,
+              "ci95": [
+                -30.4843,
+                195.6843
+              ]
+            },
+            "avg_sf_after": {
+              "n": 5,
+              "mean": 25.2,
+              "sd": 305.1929,
+              "ci95": [
+                -242.3084,
+                292.7084
+              ]
+            }
+          },
+          "piece": {
+            "count": 40,
+            "successful_attack": {
+              "count": 23,
+              "of": 40,
+              "rate": 0.575,
+              "ci95": [
+                0.422,
+                0.7149
+              ]
+            },
+            "mate": {
+              "count": 11,
+              "of": 40,
+              "rate": 0.275,
+              "ci95": [
+                0.1611,
+                0.4283
+              ]
+            },
+            "recouped": {
+              "count": 20,
+              "of": 40,
+              "rate": 0.5,
+              "ci95": [
+                0.352,
+                0.648
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 40,
+              "wins": 21,
+              "draws": 6,
+              "losses": 13,
+              "score": {
+                "n": 40,
+                "mean": 0.6,
+                "sd": 0.4557,
+                "ci95": [
+                  0.446,
+                  0.7365
+                ],
+                "points": 24.0
+              }
+            },
+            "avg_d4": {
+              "n": 40,
+              "mean": 332.75,
+              "sd": 92.1255,
+              "ci95": [
+                304.2005,
+                361.2995
+              ]
+            },
+            "avg_move_number": {
+              "n": 40,
+              "mean": 23.675,
+              "sd": 14.9913,
+              "ci95": [
+                19.0292,
+                28.3208
+              ]
+            },
+            "sf_evaluated": 40,
+            "unsound": {
+              "count": 10,
+              "of": 40,
+              "rate": 0.25,
+              "ci95": [
+                0.1419,
+                0.4019
+              ]
+            },
+            "practical_chance": {
+              "count": 8,
+              "of": 10,
+              "rate": 0.8,
+              "ci95": [
+                0.4902,
+                0.9433
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 40,
+              "mean": 4.95,
+              "sd": 585.0496,
+              "ci95": [
+                -176.3554,
+                186.2554
+              ]
+            },
+            "avg_sf_after": {
+              "n": 40,
+              "mean": 675.075,
+              "sd": 1397.4037,
+              "ci95": [
+                242.0231,
+                1108.1269
+              ]
+            }
+          },
+          "pawn": {
+            "count": 39,
+            "successful_attack": {
+              "count": 23,
+              "of": 39,
+              "rate": 0.5897,
+              "ci95": [
+                0.4342,
+                0.7292
+              ]
+            },
+            "mate": {
+              "count": 2,
+              "of": 39,
+              "rate": 0.0513,
+              "ci95": [
+                0.0142,
+                0.1689
+              ]
+            },
+            "recouped": {
+              "count": 22,
+              "of": 39,
+              "rate": 0.5641,
+              "ci95": [
+                0.4098,
+                0.707
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 39,
+              "wins": 14,
+              "draws": 13,
+              "losses": 12,
+              "score": {
+                "n": 39,
+                "mean": 0.5256,
+                "sd": 0.4128,
+                "ci95": [
+                  0.3738,
+                  0.6729
+                ],
+                "points": 20.5
+              }
+            },
+            "avg_d4": {
+              "n": 39,
+              "mean": 100.2564,
+              "sd": 1.6013,
+              "ci95": [
+                99.7539,
+                100.759
+              ]
+            },
+            "avg_move_number": {
+              "n": 39,
+              "mean": 34.1538,
+              "sd": 22.7232,
+              "ci95": [
+                27.0223,
+                41.2854
+              ]
+            },
+            "sf_evaluated": 39,
+            "unsound": {
+              "count": 3,
+              "of": 39,
+              "rate": 0.0769,
+              "ci95": [
+                0.0265,
+                0.2032
+              ]
+            },
+            "practical_chance": {
+              "count": 1,
+              "of": 3,
+              "rate": 0.3333,
+              "ci95": [
+                0.0615,
+                0.7923
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 39,
+              "mean": 54.4615,
+              "sd": 142.4756,
+              "ci95": [
+                9.7462,
+                99.1769
+              ]
+            },
+            "avg_sf_after": {
+              "n": 39,
+              "mean": -141.5641,
+              "sd": 588.9811,
+              "ci95": [
+                -326.4131,
+                43.2849
+              ]
+            }
+          }
+        }
+      },
+      "old": {
+        "games": 60,
+        "result": {
+          "games": 60,
+          "wins": 24,
+          "draws": 9,
+          "losses": 27,
+          "score": {
+            "n": 60,
+            "mean": 0.475,
+            "sd": 0.4642,
+            "ci95": [
+              0.354,
+              0.599
+            ],
+            "points": 28.5
+          }
+        },
+        "engine_moves_analysed": 2896,
+        "games_with_sacrifice": {
+          "count": 52,
+          "of": 60,
+          "rate": 0.8667,
+          "ci95": [
+            0.7583,
+            0.9309
+          ]
+        },
+        "sacrifices": 105,
+        "sacrifices_per_game": {
+          "n": 60,
+          "mean": 1.75,
+          "sd": 1.0834,
+          "ci95": [
+            1.4759,
+            2.0241
+          ]
+        },
+        "sacrifices_per_100_moves": 3.6257,
+        "sacrifices_per_game_histogram": {
+          "0": 8,
+          "1": 17,
+          "2": 20,
+          "3": 12,
+          "4": 3
+        },
+        "categories": {
+          "queen": 6,
+          "exchange": 7,
+          "piece": 45,
+          "pawn": 47
+        },
+        "book_sacrifices": 0,
+        "intent_unknown": 0,
+        "intent_mate": 14,
+        "chained_sacrifices": 12,
+        "avg_chain_len": {
+          "n": 105,
+          "mean": 1.1143,
+          "sd": 0.3197,
+          "ci95": [
+            1.0531,
+            1.1754
+          ]
+        },
+        "sacrifices_by_context": {
+          "balanced": 51,
+          "winning": 36,
+          "losing": 18,
+          "unknown": 0
+        },
+        "balanced_sacrifices_per_game": {
+          "n": 60,
+          "mean": 0.85,
+          "sd": 0.9712,
+          "ci95": [
+            0.6043,
+            1.0957
+          ]
+        },
+        "games_with_balanced_sacrifice": {
+          "count": 34,
+          "of": 60,
+          "rate": 0.5667,
+          "ci95": [
+            0.441,
+            0.6843
+          ]
+        },
+        "blunders": 94,
+        "blunders_per_game": {
+          "n": 60,
+          "mean": 1.5667,
+          "sd": 1.3575,
+          "ci95": [
+            1.2232,
+            1.9102
+          ]
+        },
+        "blunder_categories": {
+          "queen": 10,
+          "exchange": 3,
+          "piece": 55,
+          "pawn": 26
+        },
+        "blunders_collapsed": 63,
+        "forced_losses": 2,
+        "desperation_moves": 20,
+        "mates_after_sacrifice": {
+          "count": 22,
+          "of": 105,
+          "rate": 0.2095,
+          "ci95": [
+            0.1426,
+            0.2969
+          ]
+        },
+        "successful_attacks": {
+          "count": 55,
+          "of": 105,
+          "rate": 0.5238,
+          "ci95": [
+            0.4291,
+            0.6168
+          ]
+        },
+        "recouped": {
+          "count": 45,
+          "of": 105,
+          "rate": 0.4286,
+          "ci95": [
+            0.3381,
+            0.5241
+          ]
+        },
+        "score_games_with_sacrifice": {
+          "games": 52,
+          "wins": 23,
+          "draws": 8,
+          "losses": 21,
+          "score": {
+            "n": 52,
+            "mean": 0.5192,
+            "sd": 0.464,
+            "ci95": [
+              0.3869,
+              0.649
+            ],
+            "points": 27.0
+          }
+        },
+        "score_games_without_sacrifice": {
+          "games": 8,
+          "wins": 1,
+          "draws": 1,
+          "losses": 6,
+          "score": {
+            "n": 8,
+            "mean": 0.1875,
+            "sd": 0.372,
+            "ci95": [
+              0.0445,
+              0.5332
+            ],
+            "points": 1.5
+          }
+        },
+        "sacrifice_game_result": {
+          "games": 105,
+          "wins": 44,
+          "draws": 21,
+          "losses": 40,
+          "score": {
+            "n": 105,
+            "mean": 0.519,
+            "sd": 0.449,
+            "ci95": [
+              0.4245,
+              0.6122
+            ],
+            "points": 54.5
+          }
+        },
+        "avg_move_number": {
+          "n": 105,
+          "mean": 31.4952,
+          "sd": 22.0986,
+          "ci95": [
+            27.2684,
+            35.7221
+          ]
+        },
+        "sf_evaluated": 105,
+        "unsound": {
+          "count": 12,
+          "of": 105,
+          "rate": 0.1143,
+          "ci95": [
+            0.0666,
+            0.1892
+          ]
+        },
+        "practical_chances": {
+          "count": 9,
+          "of": 12,
+          "rate": 0.75,
+          "ci95": [
+            0.4677,
+            0.9111
+          ]
+        },
+        "sound_sacrifices": {
+          "count": 93,
+          "of": 105,
+          "rate": 0.8857,
+          "ci95": [
+            0.8108,
+            0.9334
+          ]
+        },
+        "avg_sf_before": {
+          "n": 105,
+          "mean": 307.1333,
+          "sd": 1251.7767,
+          "ci95": [
+            67.7024,
+            546.5643
+          ]
+        },
+        "avg_sf_after": {
+          "n": 105,
+          "mean": 258.8667,
+          "sd": 1277.6585,
+          "ci95": [
+            14.4852,
+            503.2481
+          ]
+        },
+        "blunders_confirmed_by_sf": {
+          "count": 23,
+          "of": 94,
+          "rate": 0.2447,
+          "ci95": [
+            0.1689,
+            0.3405
+          ]
+        },
+        "per_category": {
+          "queen": {
+            "count": 6,
+            "successful_attack": {
+              "count": 4,
+              "of": 6,
+              "rate": 0.6667,
+              "ci95": [
+                0.3,
+                0.9032
+              ]
+            },
+            "mate": {
+              "count": 3,
+              "of": 6,
+              "rate": 0.5,
+              "ci95": [
+                0.1876,
+                0.8124
+              ]
+            },
+            "recouped": {
+              "count": 2,
+              "of": 6,
+              "rate": 0.3333,
+              "ci95": [
+                0.0968,
+                0.7
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 6,
+              "wins": 3,
+              "draws": 1,
+              "losses": 2,
+              "score": {
+                "n": 6,
+                "mean": 0.5833,
+                "sd": 0.4916,
+                "ci95": [
+                  0.2411,
+                  0.8605
+                ],
+                "points": 3.5
+              }
+            },
+            "avg_d4": {
+              "n": 6,
+              "mean": 733.3333,
+              "sd": 210.3014,
+              "ci95": [
+                565.0603,
+                901.6064
+              ]
+            },
+            "avg_move_number": {
+              "n": 6,
+              "mean": 40.6667,
+              "sd": 13.5745,
+              "ci95": [
+                29.805,
+                51.5283
+              ]
+            },
+            "sf_evaluated": 6,
+            "unsound": {
+              "count": 0,
+              "of": 6,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.3903
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 6,
+              "mean": 208.0,
+              "sd": 503.189,
+              "ci95": [
+                -194.6277,
+                610.6277
+              ]
+            },
+            "avg_sf_after": {
+              "n": 6,
+              "mean": 951.5,
+              "sd": 1793.5235,
+              "ci95": [
+                -483.5914,
+                2386.5914
+              ]
+            }
+          },
+          "exchange": {
+            "count": 7,
+            "successful_attack": {
+              "count": 4,
+              "of": 7,
+              "rate": 0.5714,
+              "ci95": [
+                0.2505,
+                0.8418
+              ]
+            },
+            "mate": {
+              "count": 1,
+              "of": 7,
+              "rate": 0.1429,
+              "ci95": [
+                0.0257,
+                0.5131
+              ]
+            },
+            "recouped": {
+              "count": 4,
+              "of": 7,
+              "rate": 0.5714,
+              "ci95": [
+                0.2505,
+                0.8418
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 7,
+              "wins": 1,
+              "draws": 1,
+              "losses": 5,
+              "score": {
+                "n": 7,
+                "mean": 0.2143,
+                "sd": 0.3934,
+                "ci95": [
+                  0.0511,
+                  0.5799
+                ],
+                "points": 1.5
+              }
+            },
+            "avg_d4": {
+              "n": 7,
+              "mean": 175.7143,
+              "sd": 5.3452,
+              "ci95": [
+                171.7546,
+                179.674
+              ]
+            },
+            "avg_move_number": {
+              "n": 7,
+              "mean": 29.5714,
+              "sd": 16.8014,
+              "ci95": [
+                17.125,
+                42.0178
+              ]
+            },
+            "sf_evaluated": 7,
+            "unsound": {
+              "count": 0,
+              "of": 7,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.3543
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 0,
+              "rate": null,
+              "ci95": null
+            },
+            "avg_sf_drop": {
+              "n": 7,
+              "mean": 9.5714,
+              "sd": 50.0162,
+              "ci95": [
+                -27.4804,
+                46.6233
+              ]
+            },
+            "avg_sf_after": {
+              "n": 7,
+              "mean": -234.1429,
+              "sd": 1747.2599,
+              "ci95": [
+                -1528.5073,
+                1060.2216
+              ]
+            }
+          },
+          "piece": {
+            "count": 45,
+            "successful_attack": {
+              "count": 28,
+              "of": 45,
+              "rate": 0.6222,
+              "ci95": [
+                0.4763,
+                0.7489
+              ]
+            },
+            "mate": {
+              "count": 13,
+              "of": 45,
+              "rate": 0.2889,
+              "ci95": [
+                0.1773,
+                0.4337
+              ]
+            },
+            "recouped": {
+              "count": 20,
+              "of": 45,
+              "rate": 0.4444,
+              "ci95": [
+                0.3094,
+                0.5882
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 45,
+              "wins": 27,
+              "draws": 5,
+              "losses": 13,
+              "score": {
+                "n": 45,
+                "mean": 0.6556,
+                "sd": 0.45,
+                "ci95": [
+                  0.5095,
+                  0.7771
+                ],
+                "points": 29.5
+              }
+            },
+            "avg_d4": {
+              "n": 45,
+              "mean": 346.4444,
+              "sd": 101.066,
+              "ci95": [
+                316.9156,
+                375.9733
+              ]
+            },
+            "avg_move_number": {
+              "n": 45,
+              "mean": 23.2667,
+              "sd": 12.3,
+              "ci95": [
+                19.6729,
+                26.8604
+              ]
+            },
+            "sf_evaluated": 45,
+            "unsound": {
+              "count": 11,
+              "of": 45,
+              "rate": 0.2444,
+              "ci95": [
+                0.1424,
+                0.3867
+              ]
+            },
+            "practical_chance": {
+              "count": 9,
+              "of": 11,
+              "rate": 0.8182,
+              "ci95": [
+                0.523,
+                0.9486
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 45,
+              "mean": 48.9778,
+              "sd": 555.9303,
+              "ci95": [
+                -113.4507,
+                211.4063
+              ]
+            },
+            "avg_sf_after": {
+              "n": 45,
+              "mean": 576.1111,
+              "sd": 1356.9421,
+              "ci95": [
+                179.6477,
+                972.5746
+              ]
+            }
+          },
+          "pawn": {
+            "count": 47,
+            "successful_attack": {
+              "count": 19,
+              "of": 47,
+              "rate": 0.4043,
+              "ci95": [
+                0.2764,
+                0.5466
+              ]
+            },
+            "mate": {
+              "count": 5,
+              "of": 47,
+              "rate": 0.1064,
+              "ci95": [
+                0.0463,
+                0.2259
+              ]
+            },
+            "recouped": {
+              "count": 19,
+              "of": 47,
+              "rate": 0.4043,
+              "ci95": [
+                0.2764,
+                0.5466
+              ]
+            },
+            "book": 0,
+            "intent_unknown": 0,
+            "game_result": {
+              "games": 47,
+              "wins": 13,
+              "draws": 14,
+              "losses": 20,
+              "score": {
+                "n": 47,
+                "mean": 0.4255,
+                "sd": 0.4168,
+                "ci95": [
+                  0.2951,
+                  0.5672
+                ],
+                "points": 20.0
+              }
+            },
+            "avg_d4": {
+              "n": 47,
+              "mean": 106.5957,
+              "sd": 24.6961,
+              "ci95": [
+                99.5354,
+                113.6561
+              ]
+            },
+            "avg_move_number": {
+              "n": 47,
+              "mean": 38.4894,
+              "sd": 27.8348,
+              "ci95": [
+                30.5317,
+                46.4471
+              ]
+            },
+            "sf_evaluated": 47,
+            "unsound": {
+              "count": 1,
+              "of": 47,
+              "rate": 0.0213,
+              "ci95": [
+                0.0038,
+                0.1111
+              ]
+            },
+            "practical_chance": {
+              "count": 0,
+              "of": 1,
+              "rate": 0.0,
+              "ci95": [
+                0.0,
+                0.7935
+              ]
+            },
+            "avg_sf_drop": {
+              "n": 47,
+              "mean": 32.9574,
+              "sd": 78.7252,
+              "ci95": [
+                10.4507,
+                55.4642
+              ]
+            },
+            "avg_sf_after": {
+              "n": 47,
+              "mean": -59.8723,
+              "sd": 937.9558,
+              "ci95": [
+                -328.0247,
+                208.28
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "examples": {
+    "aggro_new": [
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 33,
+        "pairing": 0,
+        "game_pair": 16,
+        "opening_index": 1800,
+        "white": "aggro_new",
+        "black": "aggro_old",
+        "engine": "aggro_new",
+        "opponent": "aggro_old",
+        "color": "white",
+        "ply": 38,
+        "move_number": 20,
+        "move": "f1f6",
+        "san": "20.Rxf6",
+        "book": false,
+        "fen": "r4rk1/pp6/1qbp1bp1/2p5/2P5/P1NP3R/1P2Q1PP/5RK1 w - - 0 20",
+        "line": "20.Rxf6 Rxf6 21.Qe7 Rf2 22.Qh7+ Kf8 23.Qh8+ Kf7",
+        "bal": [
+          -240,
+          -410,
+          -410,
+          -410
+        ],
+        "bal_k3": -410,
+        "bal_k5": -410,
+        "d3": 170,
+        "d5": 170,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 47,
+        "e_prev": 127,
+        "eval_ply": 38,
+        "baseline_ply": 38,
+        "bal_baseline": -240,
+        "in_check": false,
+        "d2": 170,
+        "d4": 170,
+        "d6": 170,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "B": 1
+        },
+        "net_lost": {
+          "B": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": 22,
+        "e1": 127,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "win",
+        "termination": "checkmate",
+        "game_plies": 97,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 48,
+        "recoup_score": 599,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": 0,
+        "sf_after": 0,
+        "sf_k12": 389,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_new.jsonl",
+        "game_id": 33,
+        "pairing": 0,
+        "game_pair": 16,
+        "opening_index": 31738,
+        "white": "aggro_new",
+        "black": "sf1800",
+        "engine": "aggro_new",
+        "opponent": "sf1800",
+        "color": "white",
+        "ply": 64,
+        "move_number": 33,
+        "move": "e2e7",
+        "san": "33.Rxe7+",
+        "book": false,
+        "fen": "4r2r/p2qnkp1/1p1b1n2/5RB1/3P2PP/P4P2/1P2R1Q1/6K1 w - - 5 33",
+        "line": "33.Rxe7+ Bxe7 34.Qc2 g6 35.Rf4 Kg7 36.h5 gxh5",
+        "bal": [
+          -340,
+          -520,
+          -520,
+          -520
+        ],
+        "bal_k3": -520,
+        "bal_k5": -520,
+        "d3": 180,
+        "d5": 180,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 37,
+        "e_prev": -356,
+        "eval_ply": 64,
+        "baseline_ply": 64,
+        "bal_baseline": -340,
+        "in_check": false,
+        "d2": 180,
+        "d4": 180,
+        "d6": 180,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "N": 1
+        },
+        "net_lost": {
+          "N": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -220,
+        "e1": -296,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "loss",
+        "termination": "checkmate",
+        "game_plies": 130,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": false,
+        "recouped_ply": null,
+        "recoup_score": null,
+        "successful_attack": false,
+        "success_reason": null,
+        "sf_before": -544,
+        "sf_after": -606,
+        "sf_k12": -637,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 52,
+        "pairing": 0,
+        "game_pair": 25,
+        "opening_index": 11617,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_new",
+        "opponent": "aggro_old",
+        "color": "black",
+        "ply": 23,
+        "move_number": 12,
+        "move": "g7h6",
+        "san": "12...gxh6",
+        "book": false,
+        "fen": "r1bq1k1r/p4ppp/1N2pn1B/1Nb5/7Q/8/PPP2PPP/R3KB1R b KQ - 2 12",
+        "line": "12...gxh6 13.Nxa8 Rg8 14.Nac7 Rg4 15.Qxh6+ Kg8 16.Bd3",
+        "bal": [
+          -420,
+          -590,
+          -590,
+          -690
+        ],
+        "bal_k3": -590,
+        "bal_k5": -590,
+        "d3": 170,
+        "d5": 170,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 39,
+        "e_prev": -66,
+        "eval_ply": 23,
+        "baseline_ply": 23,
+        "bal_baseline": -420,
+        "in_check": false,
+        "d2": 170,
+        "d4": 170,
+        "d6": 270,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "B": 1
+        },
+        "net_lost": {
+          "B": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -93,
+        "e1": -83,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 2,
+        "chain": [
+          {
+            "ply": 27,
+            "san": "Rg4",
+            "category": "pawn",
+            "intent": "sound"
+          },
+          {
+            "ply": 31,
+            "san": "Re4+",
+            "category": "piece",
+            "intent": "blunder"
+          }
+        ],
+        "result": "loss",
+        "termination": "checkmate",
+        "game_plies": 93,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 39,
+        "recoup_score": -331,
+        "successful_attack": false,
+        "success_reason": null,
+        "sf_before": -109,
+        "sf_after": -420,
+        "sf_k12": -618,
+        "unsound": true,
+        "practical_chance": false,
+        "sf_best_later": -341,
+        "sf_best_later_ply": 41
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 56,
+        "pairing": 0,
+        "game_pair": 27,
+        "opening_index": 23296,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_new",
+        "opponent": "aggro_old",
+        "color": "black",
+        "ply": 47,
+        "move_number": 24,
+        "move": "h8h7",
+        "san": "24...Kh7",
+        "book": false,
+        "fen": "r2q1r1k/p1p5/1p3nN1/6Q1/2p1P3/2PP4/PP2KPPP/n6R b - - 3 24",
+        "line": "24...Kh7 25.Nxf8+ Qxf8 26.Qf5+ Kh8 27.dxc4 Rd8 28.Rxa1",
+        "bal": [
+          420,
+          -80,
+          240,
+          140
+        ],
+        "bal_k3": 240,
+        "bal_k5": 240,
+        "d3": 180,
+        "d5": 180,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 3,
+        "e_prev": -48,
+        "eval_ply": 47,
+        "baseline_ply": 47,
+        "bal_baseline": 420,
+        "in_check": true,
+        "d2": 500,
+        "d4": 180,
+        "d6": 280,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "N": 1
+        },
+        "net_lost": {
+          "N": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -64,
+        "e1": -68,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "win",
+        "termination": "checkmate",
+        "game_plies": 152,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": false,
+        "recouped_ply": null,
+        "recoup_score": null,
+        "successful_attack": false,
+        "success_reason": null,
+        "sf_before": -19,
+        "sf_after": -71,
+        "sf_k12": -31,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "piece",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 1,
+        "pairing": 0,
+        "game_pair": 0,
+        "opening_index": 16837,
+        "white": "aggro_new",
+        "black": "aggro_old",
+        "engine": "aggro_new",
+        "opponent": "aggro_old",
+        "color": "white",
+        "ply": 16,
+        "move_number": 9,
+        "move": "d3f4",
+        "san": "9.Nf4",
+        "book": false,
+        "fen": "r2qkbnr/pp1n2pp/2p5/3ppb2/8/3N2P1/PPPNPPBP/R1BQK2R w KQkq - 0 9",
+        "line": "9.Nf4 exf4 10.O-O Ngf6 11.Nb3 Bh3 12.Bxh3 fxg3",
+        "bal": [
+          0,
+          -320,
+          -320,
+          -320
+        ],
+        "bal_k3": -320,
+        "bal_k5": -320,
+        "d3": 320,
+        "d5": 320,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 33,
+        "e_prev": null,
+        "eval_ply": 16,
+        "baseline_ply": 16,
+        "bal_baseline": 0,
+        "in_check": false,
+        "d2": 320,
+        "d4": 320,
+        "d6": 320,
+        "lost_engine": {
+          "N": 1
+        },
+        "lost_opponent": {},
+        "net_lost": {
+          "N": 1
+        },
+        "truncated": false,
+        "e0": -116,
+        "e1": -131,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "win",
+        "termination": "checkmate",
+        "game_plies": 65,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 36,
+        "recoup_score": 1289,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": 27,
+        "sf_after": -390,
+        "sf_k12": 0,
+        "unsound": true,
+        "practical_chance": true,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "piece",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_new.jsonl",
+        "game_id": 2,
+        "pairing": 0,
+        "game_pair": 0,
+        "opening_index": 31558,
+        "white": "sf1800",
+        "black": "aggro_new",
+        "engine": "aggro_new",
+        "opponent": "sf1800",
+        "color": "black",
+        "ply": 25,
+        "move_number": 13,
+        "move": "c8g4",
+        "san": "13...Bg4",
+        "book": false,
+        "fen": "r1b1k2r/1pq2ppp/p1p2n2/2b1p3/4PP2/2N1B1PP/PPP1Q3/R3KB1R b KQkq - 2 13",
+        "line": "13...Bg4 14.hxg4 Qb6 15.Nd1 O-O-O 16.g5 Nxe4 17.Bg2",
+        "bal": [
+          0,
+          -330,
+          -330,
+          -330
+        ],
+        "bal_k3": -330,
+        "bal_k5": -330,
+        "d3": 330,
+        "d5": 330,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 44,
+        "e_prev": -9,
+        "eval_ply": 25,
+        "baseline_ply": 25,
+        "bal_baseline": 0,
+        "in_check": false,
+        "d2": 330,
+        "d4": 330,
+        "d6": 330,
+        "lost_engine": {
+          "B": 1
+        },
+        "lost_opponent": {},
+        "net_lost": {
+          "B": 1
+        },
+        "truncated": false,
+        "e0": -150,
+        "e1": -199,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "win",
+        "termination": "checkmate",
+        "game_plies": 96,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 43,
+        "recoup_score": -9,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": 19,
+        "sf_after": -401,
+        "sf_k12": -225,
+        "unsound": true,
+        "practical_chance": true,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "piece",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 20,
+        "pairing": 0,
+        "game_pair": 9,
+        "opening_index": 23310,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_new",
+        "opponent": "aggro_old",
+        "color": "black",
+        "ply": 23,
+        "move_number": 12,
+        "move": "h7h5",
+        "san": "12...h5",
+        "book": false,
+        "fen": "r1b1r1k1/1pp2Npp/2np4/p3p3/2P3nq/2BPP2P/PP2BPP1/R2Q1RK1 b - - 0 12",
+        "line": "12...h5 13.hxg4 hxg4 14.g3 Qh5 15.Nxd6 cxd6 16.f4",
+        "bal": [
+          -110,
+          -430,
+          -330,
+          -430
+        ],
+        "bal_k3": -330,
+        "bal_k5": -330,
+        "d3": 220,
+        "d5": 220,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 41,
+        "e_prev": 78,
+        "eval_ply": 23,
+        "baseline_ply": 23,
+        "bal_baseline": -110,
+        "in_check": false,
+        "d2": 320,
+        "d4": 220,
+        "d6": 320,
+        "lost_engine": {
+          "N": 1
+        },
+        "lost_opponent": {
+          "P": 1
+        },
+        "net_lost": {
+          "P": -1,
+          "N": 1
+        },
+        "truncated": false,
+        "e0": -27,
+        "e1": 302,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "win",
+        "termination": "checkmate",
+        "game_plies": 86,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 31,
+        "recoup_score": 601,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": 75,
+        "sf_after": -154,
+        "sf_k12": 413,
+        "unsound": true,
+        "practical_chance": true,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "piece",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_new.jsonl",
+        "game_id": 21,
+        "pairing": 0,
+        "game_pair": 10,
+        "opening_index": 32820,
+        "white": "aggro_new",
+        "black": "sf1800",
+        "engine": "aggro_new",
+        "opponent": "sf1800",
+        "color": "white",
+        "ply": 28,
+        "move_number": 15,
+        "move": "c1a3",
+        "san": "15.Ba3",
+        "book": false,
+        "fen": "rn1b1r2/3p1kpp/ppq1pn2/3N4/2PpP3/1P4P1/P4PKP/R1BQ1R2 w - - 2 15",
+        "line": "15.Ba3 exd5 16.exd5 Qc8 17.Re1 Kg8 18.Bxf8 Kxf8",
+        "bal": [
+          -320,
+          -640,
+          -540,
+          -540
+        ],
+        "bal_k3": -540,
+        "bal_k5": -540,
+        "d3": 220,
+        "d5": 220,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 42,
+        "e_prev": -452,
+        "eval_ply": 28,
+        "baseline_ply": 28,
+        "bal_baseline": -320,
+        "in_check": false,
+        "d2": 320,
+        "d4": 220,
+        "d6": 220,
+        "lost_engine": {
+          "N": 1
+        },
+        "lost_opponent": {
+          "P": 1
+        },
+        "net_lost": {
+          "P": -1,
+          "N": 1
+        },
+        "truncated": false,
+        "e0": -289,
+        "e1": -253,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "win",
+        "termination": "checkmate",
+        "game_plies": 213,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 36,
+        "recoup_score": -159,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": -406,
+        "sf_after": -434,
+        "sf_k12": -192,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      }
+    ],
+    "aggro_old": [
+      {
+        "type": "sacrifice",
+        "category": "queen",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 19,
+        "pairing": 0,
+        "game_pair": 9,
+        "opening_index": 23310,
+        "white": "aggro_new",
+        "black": "aggro_old",
+        "engine": "aggro_old",
+        "opponent": "aggro_new",
+        "color": "black",
+        "ply": 129,
+        "move_number": 65,
+        "move": "g8g4",
+        "san": "65...Qg4+",
+        "book": false,
+        "fen": "6q1/1p1b4/3p1Q2/3k3K/PpR5/1P6/2p5/8 b - - 4 65",
+        "line": "65...Qg4+ 66.Rxg4 Bxg4+ 67.Kxg4 c1=Q 68.Qf7+ Kd4 69.Qf6+",
+        "bal": [
+          30,
+          -870,
+          -700,
+          100
+        ],
+        "bal_k3": -370,
+        "bal_k5": 100,
+        "d3": 400,
+        "d5": -70,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 32,
+        "e_prev": -75,
+        "eval_ply": 129,
+        "baseline_ply": 129,
+        "bal_baseline": 30,
+        "in_check": false,
+        "d2": 900,
+        "d4": 730,
+        "d6": -70,
+        "lost_engine": {
+          "B": 1,
+          "Q": 1
+        },
+        "lost_opponent": {
+          "R": 1
+        },
+        "net_lost": {
+          "B": 1,
+          "R": -1,
+          "Q": 1
+        },
+        "truncated": false,
+        "e0": 203,
+        "e1": 283,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "draw",
+        "termination": "threefold",
+        "game_plies": 386,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 135,
+        "recoup_score": 186,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": 10,
+        "sf_after": 3,
+        "sf_k12": 0,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_old.jsonl",
+        "game_id": 19,
+        "pairing": 0,
+        "game_pair": 9,
+        "opening_index": 15281,
+        "white": "aggro_old",
+        "black": "sf1800",
+        "engine": "aggro_old",
+        "opponent": "sf1800",
+        "color": "white",
+        "ply": 166,
+        "move_number": 84,
+        "move": "g5d5",
+        "san": "84.Rxd5+",
+        "book": false,
+        "fen": "8/6K1/8/3b2RP/3k4/8/5r2/8 w - - 1 84",
+        "line": "84.Rxd5+ Kxd5 85.h6 Ke6 86.h7 Rg2+ 87.Kf8 Ra2",
+        "bal": [
+          -230,
+          -400,
+          -400,
+          -400
+        ],
+        "bal_k3": -400,
+        "bal_k5": -400,
+        "d3": 170,
+        "d5": 170,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 13,
+        "e_prev": -181,
+        "eval_ply": 166,
+        "baseline_ply": 166,
+        "bal_baseline": -230,
+        "in_check": false,
+        "d2": 170,
+        "d4": 170,
+        "d6": 170,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "B": 1
+        },
+        "net_lost": {
+          "B": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -75,
+        "e1": -75,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "draw",
+        "termination": "insufficient",
+        "game_plies": 179,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 176,
+        "recoup_score": -75,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": 0,
+        "sf_after": 0,
+        "sf_k12": 0,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 40,
+        "pairing": 0,
+        "game_pair": 19,
+        "opening_index": 15940,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_old",
+        "opponent": "aggro_new",
+        "color": "white",
+        "ply": 28,
+        "move_number": 15,
+        "move": "c1a3",
+        "san": "15.Ba3",
+        "book": false,
+        "fen": "r3k2r/p2q1ppp/1p2p1n1/3pP1N1/P2P1PQ1/8/2n3PP/R1B2RK1 w kq - 1 15",
+        "line": "15.Ba3 Nxa1 16.Rxa1 h5 17.Qh3 Nxf4 18.Qe3 Nxg2",
+        "bal": [
+          -90,
+          -590,
+          -270,
+          -370
+        ],
+        "bal_k3": -270,
+        "bal_k5": -270,
+        "d3": 180,
+        "d5": 180,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 33,
+        "e_prev": 91,
+        "eval_ply": 28,
+        "baseline_ply": 28,
+        "bal_baseline": -90,
+        "in_check": false,
+        "d2": 500,
+        "d4": 180,
+        "d6": 280,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "N": 1
+        },
+        "net_lost": {
+          "N": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": 49,
+        "e1": -67,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "loss",
+        "termination": "checkmate",
+        "game_plies": 98,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 42,
+        "recoup_score": 317,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": -125,
+        "sf_after": -241,
+        "sf_k12": -66,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 56,
+        "pairing": 0,
+        "game_pair": 27,
+        "opening_index": 23296,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_old",
+        "opponent": "aggro_new",
+        "color": "white",
+        "ply": 26,
+        "move_number": 14,
+        "move": "e1e2",
+        "san": "14.Ke2",
+        "book": false,
+        "fen": "r2q3r/ppp2kpp/4pn2/Q1p1p1B1/4P3/2PP4/PPn2PPP/R3K1NR w KQ - 1 14",
+        "line": "14.Ke2 Nxa1 15.Nf3 b6 16.Nxe5+ Kg8 17.Qa4 h6",
+        "bal": [
+          10,
+          -490,
+          -490,
+          -390
+        ],
+        "bal_k3": -490,
+        "bal_k5": -390,
+        "d3": 170,
+        "d5": 70,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 4,
+        "e_prev": -207,
+        "eval_ply": 26,
+        "baseline_ply": 24,
+        "bal_baseline": -320,
+        "in_check": true,
+        "d2": 170,
+        "d4": 170,
+        "d6": 70,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "B": 1
+        },
+        "net_lost": {
+          "B": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -254,
+        "e1": -218,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "loss",
+        "termination": "checkmate",
+        "game_plies": 152,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 38,
+        "recoup_score": 438,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": -156,
+        "sf_after": -157,
+        "sf_k12": 0,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 60,
+        "pairing": 0,
+        "game_pair": 29,
+        "opening_index": 21132,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_old",
+        "opponent": "aggro_new",
+        "color": "white",
+        "ply": 44,
+        "move_number": 23,
+        "move": "c1c5",
+        "san": "23.Rxc5",
+        "book": false,
+        "fen": "4k3/p4p1Q/4bp2/2bp2r1/3q4/NP3KP1/P6P/2R1R3 w - - 7 23",
+        "line": "23.Rxc5 Qxc5 24.Nc2 Qc3+ 25.Re3 Qd2 26.Rxe6+ fxe6",
+        "bal": [
+          160,
+          -10,
+          -10,
+          -10
+        ],
+        "bal_k3": -10,
+        "bal_k5": -10,
+        "d3": 170,
+        "d5": 170,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 40,
+        "e_prev": 15,
+        "eval_ply": 44,
+        "baseline_ply": 44,
+        "bal_baseline": 160,
+        "in_check": false,
+        "d2": 170,
+        "d4": 170,
+        "d6": 170,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "B": 1
+        },
+        "net_lost": {
+          "B": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -113,
+        "e1": -45,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "draw",
+        "termination": "fifty",
+        "game_plies": 227,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": true,
+        "recouped_ply": 60,
+        "recoup_score": 63,
+        "successful_attack": true,
+        "success_reason": "recouped",
+        "sf_before": -267,
+        "sf_after": -228,
+        "sf_k12": 0,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 2,
+        "pairing": 0,
+        "game_pair": 0,
+        "opening_index": 16837,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_old",
+        "opponent": "aggro_new",
+        "color": "white",
+        "ply": 34,
+        "move_number": 18,
+        "move": "f2f7",
+        "san": "18.Rf7+",
+        "book": false,
+        "fen": "r6r/pp1nk1pp/2p5/4p3/1q6/6P1/PPP2RKP/R2Q4 w - - 0 18",
+        "line": "18.Rf7+ Kxf7 19.Qxd7+ Kg6 20.Qe6+ Kh5 21.Kh3 Raf8",
+        "bal": [
+          -420,
+          -920,
+          -600,
+          -600
+        ],
+        "bal_k3": -600,
+        "bal_k5": -600,
+        "d3": 180,
+        "d5": 180,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 40,
+        "e_prev": 4,
+        "eval_ply": 34,
+        "baseline_ply": 34,
+        "bal_baseline": -420,
+        "in_check": false,
+        "d2": 500,
+        "d4": 180,
+        "d6": 180,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "N": 1
+        },
+        "net_lost": {
+          "N": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -75,
+        "e1": -75,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "loss",
+        "termination": "checkmate",
+        "game_plies": 104,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": false,
+        "recouped_ply": null,
+        "recoup_score": null,
+        "successful_attack": false,
+        "success_reason": null,
+        "sf_before": -366,
+        "sf_after": -343,
+        "sf_k12": -507,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "exchange",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/gauntlet_old.jsonl",
+        "game_id": 23,
+        "pairing": 0,
+        "game_pair": 11,
+        "opening_index": 12470,
+        "white": "aggro_old",
+        "black": "sf1800",
+        "engine": "aggro_old",
+        "opponent": "sf1800",
+        "color": "white",
+        "ply": 40,
+        "move_number": 21,
+        "move": "e1e6",
+        "san": "21.Rxe6",
+        "book": false,
+        "fen": "7r/p3qpk1/p3b3/2pn4/3P1Q1p/2P5/P4PPP/4RRK1 w - - 4 21",
+        "line": "21.Rxe6 Qxe6 22.Qg5+ Kf8 23.Qd8+ Kg7 24.Qg5+ Kf8",
+        "bal": [
+          -50,
+          -220,
+          -220,
+          -220
+        ],
+        "bal_k3": -220,
+        "bal_k5": -220,
+        "d3": 170,
+        "d5": 170,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 35,
+        "e_prev": -75,
+        "eval_ply": 40,
+        "baseline_ply": 40,
+        "bal_baseline": -50,
+        "in_check": false,
+        "d2": 170,
+        "d4": 170,
+        "d6": 170,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {
+          "B": 1
+        },
+        "net_lost": {
+          "B": -1,
+          "R": 1
+        },
+        "truncated": false,
+        "e0": -59,
+        "e1": -13,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "draw",
+        "termination": "threefold",
+        "game_plies": 51,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": false,
+        "recouped_ply": null,
+        "recoup_score": null,
+        "successful_attack": false,
+        "success_reason": null,
+        "sf_before": -80,
+        "sf_after": -218,
+        "sf_k12": null,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      },
+      {
+        "type": "sacrifice",
+        "category": "piece",
+        "file": "/root/aggroclone/AggroChess/testing/runs/sactest-kamikaze/h2h.jsonl",
+        "game_id": 6,
+        "pairing": 0,
+        "game_pair": 2,
+        "opening_index": 30866,
+        "white": "aggro_old",
+        "black": "aggro_new",
+        "engine": "aggro_old",
+        "opponent": "aggro_new",
+        "color": "white",
+        "ply": 86,
+        "move_number": 44,
+        "move": "d2c2",
+        "san": "44.Kc2",
+        "book": false,
+        "fen": "7Q/8/5p2/4q3/1P3nb1/4P1k1/P2K3p/R1B4B w - - 1 44",
+        "line": "44.Kc2 Qxa1 45.Qa8 Ne6 46.Qg2+ Kh4 47.Qxh2+ Kg5",
+        "bal": [
+          610,
+          110,
+          110,
+          110
+        ],
+        "bal_k3": 110,
+        "bal_k5": 110,
+        "d3": 500,
+        "d5": 500,
+        "opponent_promotions": 0,
+        "mating": false,
+        "legal_moves": 32,
+        "e_prev": 34,
+        "eval_ply": 86,
+        "baseline_ply": 86,
+        "bal_baseline": 610,
+        "in_check": false,
+        "d2": 500,
+        "d4": 500,
+        "d6": 500,
+        "lost_engine": {
+          "R": 1
+        },
+        "lost_opponent": {},
+        "net_lost": {
+          "R": 1
+        },
+        "truncated": false,
+        "e0": 95,
+        "e1": 9,
+        "intent": "sound",
+        "intent_unknown": false,
+        "context": "balanced",
+        "chain_len": 1,
+        "chain": [],
+        "result": "draw",
+        "termination": "insufficient",
+        "game_plies": 253,
+        "mate": false,
+        "mate_ply": null,
+        "recouped": false,
+        "recouped_ply": null,
+        "recoup_score": null,
+        "successful_attack": true,
+        "success_reason": "sf",
+        "sf_before": 0,
+        "sf_after": -36,
+        "sf_k12": 463,
+        "unsound": false,
+        "practical_chance": false,
+        "sf_best_later": null,
+        "sf_best_later_ply": null
+      }
+    ]
+  }
+}

@@ -141,8 +141,8 @@ Drift = rating at the slower time control minus rating at the main one, both aga
 
 | Purpose | Skill Level | Aggression | Sacrifice Appetite | King Attack Priority | Material Preservation | Speculative Sacrifices | Notes |
 |---|---|---|---|---|---|---|---|
-| **Ultimate Tal** (default) | 21 | 90 | 95 | 90 | 15 | 90 | Full search strength, the full sacrificial personality. |
-| **Kamikaze** | 21 | 100 | 100 | 100 | 0 | 100 | Every dial at the top: the most sacrifices and the most chaos. Expect it to be weaker than the default (not measured). For fun. |
+| **Ultimate Tal** (default) | 21 | 90 | 95 | 90 | 15 | 90 | Full search strength, the full sacrificial personality: the most sacrificial setting measured. |
+| **Kamikaze** | 21 | 100 | 100 | 100 | 0 | 100 | Every dial at the top. Measured against the default (100 games each, [report](testing/results/kamikaze_vs_default.md)): the same strength (52.5% head-to-head) but *not* more sacrifices (3.4 against 4.0 per 100 balanced moves, within noise). The extra attack weight makes every attacking move look good, so a sacrifice stands out less. |
 | **Classic AggroChess 4.5** | 21 | 60 | 75 | 60 | 50 | 50 | Identical search to AggroChess 4.5.0: one big sacrifice per game, then near-sound play. AggroChess 4.5.0 scored 68% against the default (100 games at 10+0.1, about +131 Elo). |
 | **Sound attacker** | 21 | 70 | 55 | 75 | 50 | 30 | Attacks hard, sacrifices mostly when it can see it through (not measured separately). |
 | **Analysis partner** | 21 | 0 | 0 | 0 | 50 | 0 | Personality off: no sacrifice bonus, symmetric evaluation, no contempt. Use with `MultiPV` 3–5. |
@@ -186,7 +186,7 @@ Balanced = the engine's own score within ±3 pawns when it moved. Intervals are 
 
 **Reading the results.** The default personality does what it was built for: in positions its own search sees as balanced it starts a sacrifice about 50% more often than AggroChess 4.5.0, sacrifices pieces more often, chains sacrifices, and sacrifices about five moves earlier, typically from roughly equal positions (Stockfish −1.4 on average) where 4.5.0 mostly sacrificed when already better (+2.0). Those sacrifices are much more speculative: Stockfish judges 18% of them clearly unsound (4.5.0: 5%), fewer end in mate, and the engine scores about 30 percentage points less than 4.5.0 against the same opponents. That is the trade the Ultimate Sacrificial Edition makes on purpose. It also blunders more by the analyser's definition (its own evaluation collapses after the reply), largely because its optimistic evaluation of its own attacks is corrected a move later; Stockfish confirms only a quarter of those as real blunders (4.5.0: half).
 
-During development a first default (a larger, permanent sacrifice bonus) was measured and rejected: it gave up material more often but mostly in four-pawn howlers, produced *fewer* purposeful sacrifices per move than 4.5.0 and lost about 160 Elo. The current mapping tolerates sacrifices up to about 1.8 pawns below the best alternative all game (3.4 pawns for the game's first sacrifice). For even more sacrifices, raise Sacrifice Appetite and Speculative Sacrifices to 100 (expect more unsound ones); for fewer, lower them, down to the Classic preset.
+During development a first default (a larger, permanent sacrifice bonus) was measured and rejected: it gave up material more often but mostly in four-pawn howlers, produced *fewer* purposeful sacrifices per move than 4.5.0 and lost about 160 Elo. The current mapping tolerates sacrifices up to about 1.8 pawns below the best alternative all game (3.4 pawns for the game's first sacrifice). Turning every control up to 100 (*Kamikaze*) did not add sacrifices in a 100-game test, so **the defaults are the most sacrificial setting measured**. For fewer sacrifices, lower Sacrifice Appetite and Speculative Sacrifices towards the Classic preset.
 
 ## How it plays
 
