@@ -1,16 +1,17 @@
-# AggroChess Ultimate Sacrificial Edition 5.0 ⚔️
+# AggroChess Ultimate Sacrificial Edition 5.1 ⚔️
 
 **AggroChess Ultimate Sacrificial Edition** (USE) is a modified version of [AggroChess](https://github.com/PhelRin/AggroChess) 4.5.0 by Rinarto Gibson, the aggressive, sacrificial UCI chess engine written in Rust in the spirit of Mikhail Tal. It keeps AggroChess's search, NNUE evaluation, gambit book and UCI implementation, and adds:
 
-* **a more sacrificial default personality**: in balanced positions about 1.5 times as many purposeful sacrifices per move as AggroChess 4.5.0 (4.9 against 3.2 per 100 moves), more piece sacrifices and Tal chains, sacrifices earlier in the game and from equal positions rather than won ones, and an appetite for sacrifice that no longer switches off after the first one. The price is measured too: more of its sacrifices are objectively unsound, and it is about 130 Elo weaker than 4.5.0 head-to-head (see [Sacrifice testing](#sacrifice-testing));
+* **a more sacrificial default personality**: in balanced positions about 1.5 times as many purposeful sacrifices per move as AggroChess 4.5.0 (4.9 against 3.2 per 100 moves), more piece sacrifices and Tal chains, sacrifices earlier in the game and from equal positions rather than won ones, and an appetite for sacrifice that no longer switches off after the first one. The price is measured too: more of its sacrifices are objectively unsound, and 5.0 was about 130 Elo weaker than 4.5.0 head-to-head (see [Sacrifice testing](#sacrifice-testing)); 5.1 measured about 80 Elo stronger than 5.0 (see [Brilliance](#brilliance));
 * **five personality controls** as UCI options: `Aggression`, `Sacrifice Appetite`, `King Attack Priority`, `Material Preservation`, `Speculative Sacrifices`;
+* **a brilliancy check** (`Brilliance`, 5.1): a second look after every timed search that swaps a quiet move for a *sound* sacrifice when one is nearly as good, and an unsound sacrifice for a clearly better safe move;
 * **a `Skill Level` 1–21 strength limiter** in the style of Patricia's, independent of the personality, with a [measured rating for every level](#measured-strength-of-every-skill-level);
 * standard GUI options (`Hash`, `Clear Hash`, `MultiPV`, `Move Overhead`) and fixes for `go infinite` and `stop`;
 * a self-contained **testing system** (`testing/`): a match runner, a UCI conformance test, a sacrifice analyser and an Elo calibration tool.
 
 Setting the personality to the *Classic* values reproduces AggroChess 4.5.0's search exactly (same moves and node counts), so the original engine is one preset away.
 
-> This is a modified version of AggroChess, distributed under the GNU GPL v3 (see `LICENSE`). Modifications by the Ultimate Sacrificial Edition, November 2026: personality options, Skill Level, MultiPV, UCI fixes and the testing tools. The original 4.5.0 README is kept in [`docs/README_AggroChess_4.5.0.md`](docs/README_AggroChess_4.5.0.md).
+> This is a modified version of AggroChess, distributed under the GNU GPL v3 (see `LICENSE`). Modifications by the Ultimate Sacrificial Edition, November 2026: personality options, Skill Level, MultiPV, the brilliancy check, UCI fixes and the testing tools. The original 4.5.0 README is kept in [`docs/README_AggroChess_4.5.0.md`](docs/README_AggroChess_4.5.0.md).
 
 ## Installing it in a chess GUI
 
@@ -50,11 +51,42 @@ AggroChess is a standard UCI engine: one executable, with the neural network and
 | `King Attack Priority` | spin | **90** | 0–100 | How much the attack on your king is worth. |
 | `Material Preservation` | spin | **15** | 0–100 | How much a material deficit hurts (low: keeps attacking a piece down). |
 | `Speculative Sacrifices` | spin | **90** | 0–100 | How *unsound* a sacrifice may be. |
+| `Brilliance` | spin | **100** | 0–100 | The brilliancy check: plays a sacrifice that is objectively nearly as good as the best move, and drops one that a safe move clearly beats. 0 = off. See [Brilliance](#brilliance). |
 | `BookPath` | string | ph-gambitbook.bin | | Optional Polyglot book used after the built-in gambit lines. |
 
 `Skill_Level` (Patricia's spelling) is accepted as an alias of `Skill Level`. Changing a personality option clears the hash table (stored scores contain the old personality).
 
 The scores the engine reports **exclude the sacrifice bonus** (AggroChess 4.5.0 included it), so a GUI and its adjudication see the engine's objective view of a sacrificial line. They still contain the personality's evaluation terms, so with the default personality the engine is somewhat optimistic about its own attacks; for neutral analysis use the *Analysis partner* settings below.
+
+## Brilliance
+
+New in 5.1. After the main search of a timed move at Skill Level 21, the engine sorts the legal moves into *sacrifices* (the moved piece is lost by static exchange: a minor piece for pawns, the exchange or more; or the move leaves something worth more than two pawns en prise) and the rest. It then searches the main choice (or its group) and the other group to the same depth with the **neutral evaluation** (personality off, no sacrifice bonus, no contempt) on a fresh hash table, using about 30% of the move's time. The neutral evaluation matters: the attacking personality is optimistic about its own attacks, which is exactly what makes a sacrifice unsound, so it does not get to judge the sacrifice.
+
+* the main search chose a quiet move, and the best sacrifice is at most *margin* below it and not losing (above *floor*) → **the sacrifice is played**: a sound sacrifice of the kind chess.com marks as "brilliant";
+* the main search chose a sacrifice worth less than +3 pawns, and the best safe move is more than *veto* above it → **the safe move is played**: the sacrifice was unsound.
+
+| Brilliance | margin | floor | veto |
+|---|---|---|---|
+| 25 | 5 cp | +25 cp | 238 cp |
+| 50 | 20 cp | 0 | 175 cp |
+| 75 | 45 cp | −25 cp | 112 cp |
+| **100** (default) | 80 cp | −50 cp | 50 cp |
+
+The engine prints `info string brilliancy look: …` for each check. The look runs only in timed games at full strength (not with `go depth`, `go nodes`, `go infinite`, MultiPV > 1 or Skill Level < 21), so the Classic preset with `go depth` still matches 4.5.0 exactly; for 4.5.0 behaviour in games, set Brilliance to 0 as well.
+
+### Measured effect
+
+Measured 2026-11-09, 10+0.1, one thread, same openings and colours (seed 1), analysed with `aggro_arena analyze` + Stockfish 16 (400k nodes per position) and counted with `testing/brilliant.py` (tables in [`testing/results/brilliance.md`](testing/results/brilliance.md)). "Brilliant-style" = a piece, exchange or queen sacrifice (pawns don't count) that Stockfish rates as costing at most 50 cp and that does not leave the engine worse than −1; the strict count also requires that the position was not already won (Stockfish < +3 before it), as chess.com does. 5.0 is the previous default build (Brilliance did not exist).
+
+| build | games vs SF 1800 | score vs SF 1800 | piece+ sacrifices | sound by SF | brilliant-style per game (strict) | brilliant-style per game (incl. won positions) |
+|---|---|---|---|---|---|---|
+| 5.0 (no brilliancy check) | 40 | 46.2% | 29 | 21 (72%) | 0.12 | 0.17 |
+| 5.1, Brilliance 75 | 60 | 62.5% | 34 | 31 (91%) | 0.13 | 0.30 |
+| **5.1, Brilliance 100** | 60 | 62.5% | 40 | 32 (80%) | 0.15 | 0.37 |
+
+Head-to-head, 5.1 (Brilliance 75) against 5.0: **+42 =14 −24, 61.3%, about +80 Elo** (80 games). The brilliancy check removes unsound sacrifices, which makes the engine both stronger and more often *right* when it sacrifices, and it plays about twice as many sound, brilliant-style sacrifices as 5.0.
+
+What it cannot do is produce several sound sacrifices *every game*: a sacrifice is only sound when the position offers one, and in these games that was the case about once every three games. The counter also misses sacrifices the opponent declined (a piece left en prise that is never taken), which chess.com still marks as brilliant. These are small samples (40–60 games) with wide error bars. The Skill Level ratings below were measured with 5.0, so Skill Level 21 is now somewhat stronger than its listed rating; levels 1–20 are unchanged because the look only runs at level 21.
 
 ## Personality settings
 
@@ -141,9 +173,9 @@ Drift = rating at the slower time control minus rating at the main one, both aga
 
 | Purpose | Skill Level | Aggression | Sacrifice Appetite | King Attack Priority | Material Preservation | Speculative Sacrifices | Notes |
 |---|---|---|---|---|---|---|---|
-| **Ultimate Tal** (default) | 21 | 90 | 95 | 90 | 15 | 90 | Full search strength, the full sacrificial personality: the most sacrificial setting measured. |
+| **Ultimate Tal** (default) | 21 | 90 | 95 | 90 | 15 | 90 | Full search strength, the full sacrificial personality, Brilliance 100: the most sacrificial setting measured, and its sacrifices are the soundest. |
 | **Kamikaze** | 21 | 100 | 100 | 100 | 0 | 100 | Every dial at the top. Measured against the default (100 games each, [report](testing/results/kamikaze_vs_default.md)): the same strength (52.5% head-to-head) but *not* more sacrifices (3.4 against 4.0 per 100 balanced moves, within noise). The extra attack weight makes every attacking move look good, so a sacrifice stands out less. |
-| **Classic AggroChess 4.5** | 21 | 60 | 75 | 60 | 50 | 50 | Identical search to AggroChess 4.5.0: one big sacrifice per game, then near-sound play. AggroChess 4.5.0 scored 68% against the default (100 games at 10+0.1, about +131 Elo). |
+| **Classic AggroChess 4.5** | 21 | 60 | 75 | 60 | 50 | 50 | Also set Brilliance 0. Identical search to AggroChess 4.5.0: one big sacrifice per game, then near-sound play. AggroChess 4.5.0 scored 68% against the default (100 games at 10+0.1, about +131 Elo). |
 | **Sound attacker** | 21 | 70 | 55 | 75 | 50 | 30 | Attacks hard, sacrifices mostly when it can see it through (not measured separately). |
 | **Analysis partner** | 21 | 0 | 0 | 0 | 50 | 0 | Personality off: no sacrifice bonus, symmetric evaluation, no contempt. Use with `MultiPV` 3–5. |
 | **Club sparring** | 10–14 | 90 | 95 | 90 | 15 | 90 | A beatable, very sharp opponent. |
@@ -229,6 +261,7 @@ Everything is in `testing/` and needs only Rust and Python 3 (standard library);
 | `testing/elo.py` | Joint maximum-likelihood ratings with anchors, bootstrap confidence intervals. |
 | `testing/sactest.py` | Sacrifice comparison of two engines (or two personalities) against the same opponents and head-to-head. |
 | `testing/regress_classic.py` | Proves the Classic preset searches exactly like AggroChess 4.5.0. |
+| `testing/brilliant.py` | Counts brilliant-style (sound piece-or-more) sacrifices in a `sactest.py` run directory. |
 
 To recalibrate the Skill Levels (for example after changing the defaults or on other hardware):
 

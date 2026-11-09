@@ -25,6 +25,13 @@ pub static TT_SIZE_MB: AtomicUsize = AtomicUsize::new(128);
 pub static NUM_THREADS: AtomicUsize = AtomicUsize::new(1);
 /// Lines shown in analysis (UCI MultiPV).
 pub static MULTI_PV: AtomicUsize = AtomicUsize::new(1);
+/// Brilliance (0-100, UCI option): after the main search, a second look that plays a sound
+/// sacrifice when one scores (objectively, without the sacrifice bonus) nearly as well as the
+/// best move, and drops a sacrifice that a safe move clearly beats. 0 turns the look off.
+pub const BRILLIANCE_DEFAULT: i32 = 100;
+pub static BRILLIANCE: AtomicI32 = AtomicI32::new(BRILLIANCE_DEFAULT);
+/// share of the move's time kept back for the brilliancy look (percent)
+pub static BRILLIANCE_PCT: AtomicI32 = AtomicI32::new(30);
 /// Set when the GUI sent `stop` (or `quit`): every search, including the side searches of the
 /// long-think features, stops at its next time check. Cleared at the start of every `go`.
 pub static EXTERNAL_STOP: AtomicBool = AtomicBool::new(false);
@@ -1078,6 +1085,8 @@ pub struct Searcher {
     root_only: Vec<Move>,
     /// root moves to skip: the moves of the earlier MultiPV lines of this iteration
     root_exclude: Vec<Move>,
+    /// a root searched with only some of its moves (brilliancy look): keep its entry out of the table
+    no_root_store: bool,
     /// the root's best move earned the sacrifice bonus as a sacrifice (not the forcing tie-break)
     root_best_sac: bool,
     /// null-move verification: no null move for `nmp_color` before this ply
@@ -1135,6 +1144,7 @@ impl Searcher {
             sac: SacParams::base(),
             root_only: Vec::new(),
             root_exclude: Vec::new(),
+            no_root_store: false,
             root_best_sac: false,
             nmp_min_ply: 0,
             nmp_color: Color::White,
@@ -2063,7 +2073,7 @@ impl Searcher {
         }
 
         // a root searched without some of its moves (MultiPV) must not overwrite the root entry
-        if excluded.is_none() && !(root && !self.root_exclude.is_empty()) {
+        if excluded.is_none() && !(root && (!self.root_exclude.is_empty() || self.no_root_store)) {
             let bound = if best_score >= beta {
                 Bound::Lower
             } else if pv_node && best_score > orig_alpha {
@@ -2325,6 +2335,59 @@ fn sub_search(tt: &Arc<TranspositionTable>, board: &Board, hist: &[u64], sac: Sa
         }
     }
     TAL_MODE.store(false, Ordering::Relaxed);
+    last
+}
+
+/// Root moves that sacrifice material: the moved piece is lost by static exchange (a minor
+/// piece for pawns, the exchange or more), or the move leaves something worth more than two
+/// pawns to be taken.
+fn brilliant_candidates(board: &Board, root_moves: &[Move]) -> Vec<Move> {
+    root_moves
+        .iter()
+        .copied()
+        .filter(|&m| {
+            if board.piece_on(m.from) == Some(Piece::King) || m.promotion.is_some() {
+                return false;
+            }
+            if !see_ge(board, m, -150) {
+                return true;
+            }
+            let mut child = board.clone();
+            child.play_unchecked(m);
+            leaves_material_at(&child, 250)
+        })
+        .collect()
+}
+
+/// The brilliancy look's search: the root with only `group` searched, on the main table (it
+/// is warm) without storing the root. Returns the objective score (sacrifice bonus taken
+/// out), depth, the bonus and the PV of the last completed iteration.
+fn group_look(tt: &Arc<TranspositionTable>, board: &Board, hist: &[u64], sac: SacParams, budget: Duration, group: Vec<Move>, max_depth: i32) -> Option<(i32, i32, i32, Vec<Move>)> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let mut t = Searcher::new(Arc::clone(tt), Arc::clone(&stop), Arc::new(AtomicU64::new(0)), true);
+    t.sac = sac;
+    t.hashes = hist.to_vec();
+    t.root_color = board.side_to_move();
+    t.start = Instant::now();
+    t.hard_limit = Some(budget);
+    t.root_only = group;
+    t.no_root_store = true;
+    let mut sc = 0;
+    let mut last = None;
+    for depth in 1..=max_depth.max(1) {
+        t.root_depth = depth;
+        t.root_best_sb = 0;
+        t.root_best_sac = false;
+        sc = aspiration(&mut t, board, depth, sc);
+        if stop.load(Ordering::Relaxed) {
+            break;
+        }
+        let sb = if sc.abs() < MATE_BOUND { t.root_best_sb } else { 0 };
+        last = Some((sc - sb, depth, sb, t.root_pv()));
+        if sc.abs() >= MATE_BOUND {
+            break;
+        }
+    }
     last
 }
 
@@ -2625,6 +2688,28 @@ fn search_position_inner(
     let look_pct = TAL_LOOK_PCT.load(Ordering::Relaxed).clamp(1, 50);
     if !tal_cands.is_empty() {
         let keep = (100 - look_pct) as u32;
+        limits.hard = limits.hard.map(|h| h * keep / 100);
+        limits.soft = limits.soft.map(|h| h * keep / 100);
+    }
+
+    // Brilliancy look (timed games at full strength): part of the time is kept back when
+    // the position has sacrifices to look at.
+    let brilliance = BRILLIANCE.load(Ordering::Relaxed).clamp(0, 100);
+    let bril_cands: Vec<Move> = if brilliance > 0
+        && full
+        && !user_nodes
+        && limits.depth.is_none()
+        && limits.hard.is_some()
+        && MULTI_PV.load(Ordering::Relaxed) <= 1
+        && ROOT_FILTER.lock().unwrap().is_empty()
+    {
+        brilliant_candidates(board, &root_moves)
+    } else {
+        Vec::new()
+    };
+    let bril_on = !bril_cands.is_empty() && bril_cands.len() < root_moves.len();
+    if bril_on {
+        let keep = (100 - BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50)) as u32;
         limits.hard = limits.hard.map(|h| h * keep / 100);
         limits.soft = limits.soft.map(|h| h * keep / 100);
     }
@@ -2988,6 +3073,100 @@ fn search_position_inner(
                         *LAST_PV.lock().unwrap() = pv.clone();
                         if print_info {
                             out!("info depth {} score {} pv {}", d, format_score(sc), pv_string(board, &pv));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- brilliancy look ----
+    // The main search's choice is checked against the other group of moves, by objective
+    // score (the sacrifice bonus taken out): a quiet choice gives way to a sacrifice that is
+    // nearly as good (a sound sacrifice, the kind that is "brilliant"), and a sacrificial
+    // choice gives way to a safe move that is clearly better (an unsound sacrifice).
+    if bril_on && clean_depth1 && best_score.abs() < MATE_BOUND && done_depth >= 4 {
+        if let Some(bm) = best_move {
+            let used = start.elapsed();
+            let pct = BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50) as u32;
+            let mut budget = used * pct / (100 - pct);
+            if let Some(h) = full_hard {
+                budget = budget.min(h.saturating_sub(used));
+            }
+            let best_true = best_score - best_sb;
+            let best_is_sac = bril_cands.contains(&bm);
+            let group: Vec<Move> = if best_is_sac {
+                root_moves.iter().copied().filter(|m| !bril_cands.contains(m)).collect()
+            } else {
+                bril_cands.clone()
+            };
+            if !group.is_empty() && budget >= Duration::from_millis(20) && best_true.abs() < 1500 {
+                // both sides of the comparison are searched with the neutral evaluation (no
+                // personality, no sacrifice bonus, no contempt) on a fresh table, to the same
+                // depth: the personality's optimism about its own attacks is what makes a
+                // sacrifice unsound, so it must not judge it
+                let mine: Vec<Move> = if best_is_sac {
+                    vec![bm]
+                } else {
+                    root_moves.iter().copied().filter(|m| !bril_cands.contains(m)).collect()
+                };
+                let stm = board.side_to_move();
+                let contempt = CONTEMPT.load(Ordering::Relaxed);
+                let tal = TAL_MODE.load(Ordering::Relaxed);
+                eval::set_engine_color(None);
+                CONTEMPT.store(0, Ordering::Relaxed);
+                TAL_MODE.store(false, Ordering::Relaxed);
+                let mut nsac = SacParams::base();
+                nsac.bonus = 0;
+                nsac.chain = 0;
+                nsac.gambit = 0;
+                nsac.forcing = 0;
+                nsac.any = false;
+                let ntt = Arc::new(TranspositionTable::new(16));
+                let look_start = Instant::now();
+                let a = group_look(&ntt, board, &s.hashes, nsac, budget / 2, mine, done_depth);
+                let b_res = a.as_ref().and_then(|&(_, da, _, _)| {
+                    group_look(&ntt, board, &s.hashes, nsac, budget.saturating_sub(look_start.elapsed()), group, da)
+                });
+                eval::set_engine_color(Some(stm));
+                CONTEMPT.store(contempt, Ordering::Relaxed);
+                TAL_MODE.store(tal, Ordering::Relaxed);
+                if let (Some((sa, da, _, _)), Some((sb2, db, _, pv))) = (a, b_res) {
+                    let b = brilliance;
+                    let margin = b * b / 125; // 75 -> 45 cp
+                    let veto = 300 - 5 * b / 2; // 75 -> 112 cp
+                    let floor = 50 - b; // 75 -> -25 cp
+                    let deep_enough = da >= 5 && db >= da - 1;
+                    let take = deep_enough
+                        && !pv.is_empty()
+                        && if best_is_sac {
+                            sa < 300 && sb2.abs() < MATE_BOUND && sb2 > sa + veto
+                        } else {
+                            sb2 >= MATE_BOUND
+                                || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < 1000)
+                        };
+                    if print_info {
+                        out!(
+                            "info string brilliancy look: {} {} {} vs {} {} (neutral, depth {}/{}){}",
+                            if best_is_sac { "safe" } else { "sacrifice" },
+                            pv_string(board, &pv[..1.min(pv.len())]),
+                            sb2,
+                            if best_is_sac { "sacrifice" } else { "best quiet" },
+                            sa,
+                            da,
+                            db,
+                            if take { " -> played" } else { "" }
+                        );
+                    }
+                    if take {
+                        best_move = Some(pv[0]);
+                        // the main search's view of the new move is not known: keep its score
+                        // scale (objective, no bonus)
+                        best_score = if sb2.abs() < MATE_BOUND { best_true - (sa - sb2) } else { sb2 };
+                        best_sb = 0;
+                        *LAST_PV.lock().unwrap() = pv.clone();
+                        if print_info {
+                            out!("info depth {} score {} pv {}", db, format_score(best_score), pv_string(board, &pv));
                         }
                     }
                 }

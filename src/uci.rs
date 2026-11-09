@@ -131,6 +131,11 @@ pub fn uci_loop() {
                                 move_overhead = v.clamp(0, 5000) as u64;
                             }
                         }
+                        "brilliance" => {
+                            if let Some(v) = int(&value) {
+                                search::BRILLIANCE.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
+                            }
+                        }
                         "skill level" | "skill_level" => {
                             if let Some(v) = int(&value) {
                                 crate::skill::set_level(v.clamp(1, 21) as i32);
@@ -763,6 +768,7 @@ pub fn option_lines() -> Vec<String> {
         format!("option name King Attack Priority type spin default {} min 0 max 100", p.king_attack),
         format!("option name Material Preservation type spin default {} min 0 max 100", p.material_preservation),
         format!("option name Speculative Sacrifices type spin default {} min 0 max 100", p.speculative),
+        format!("option name Brilliance type spin default {} min 0 max 100", search::BRILLIANCE_DEFAULT),
         "option name BookPath type string default ph-gambitbook.bin".to_string(),
     ]
 }
@@ -783,6 +789,7 @@ fn is_user_option(name: &str) -> bool {
             | "king attack priority"
             | "material preservation"
             | "speculative sacrifices"
+            | "brilliance"
             | "bookpath"
     )
 }
