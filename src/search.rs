@@ -23,14 +23,40 @@ pub const MATE_BOUND: i32 = MATE - 1000;
 
 pub static TT_SIZE_MB: AtomicUsize = AtomicUsize::new(128);
 pub static NUM_THREADS: AtomicUsize = AtomicUsize::new(1);
-/// Draw score penalty (centipawns) from the engine's point of view.
-pub static CONTEMPT: AtomicI32 = AtomicI32::new(50);
-/// 0..=20. 20 = full strength. Lower levels limit nodes and add evaluation noise.
-/// Root bonus (centipawns) for moves that give up material. 0 = off.
-pub static SACRIFICE_BONUS: AtomicI32 = AtomicI32::new(300);
-/// A sacrifice only gets the bonus if its line scores at least this much.
-pub static SAC_FLOOR: AtomicI32 = AtomicI32::new(-310);
-pub static SKILL: AtomicI32 = AtomicI32::new(20);
+/// Lines shown in analysis (UCI MultiPV).
+pub static MULTI_PV: AtomicUsize = AtomicUsize::new(1);
+/// Set when the GUI sent `stop` (or `quit`): every search, including the side searches of the
+/// long-think features, stops at its next time check. Cleared at the start of every `go`.
+pub static EXTERNAL_STOP: AtomicBool = AtomicBool::new(false);
+
+// The personality parameters below start at the derived values of the default UCI settings
+// (see personality.rs; the 4.5.0 value is noted on each).
+
+/// Draw score penalty (centipawns) from the engine's point of view (Aggression; 4.5.0: 50).
+pub static CONTEMPT: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.contempt);
+/// Root bonus (centipawns) for moves that give up material (Sacrifice Appetite; 4.5.0: 300). 0 = off.
+pub static SACRIFICE_BONUS: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_bonus);
+/// A sacrifice only gets the bonus if its line scores at least this much (Speculative
+/// Sacrifices; 4.5.0: -310).
+pub static SAC_FLOOR: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_floor);
+/// Among near-equal root moves, the forcing one (check, capture, king attack) gets this
+/// tie-break (Aggression; 4.5.0: 12).
+pub static FORCING_TIEBREAK: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.forcing_tiebreak);
+/// Move-ordering bonus for quiet moves of the engine's side that aim at the enemy king zone
+/// (King Attack Priority; 4.5.0: 2500).
+pub static ZONE_ORDER: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.zone_order);
+/// Bonus for a pawn-sized sacrifice (a gambit) aimed at the king or opening lines in the
+/// middlegame (Sacrifice Appetite; 4.5.0: 0).
+pub static GAMBIT_BONUS: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.gambit_bonus);
+/// Share of the sacrifice bonus (percent) for a sacrifice with one attacker fewer than
+/// SAC_FULL_UNITS behind it, and with fewer still (Speculative Sacrifices; 4.5.0: 60 and 25).
+pub static SAC_PARTIAL_HI: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_partial_hi);
+pub static SAC_PARTIAL_LO: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_partial_lo);
+/// Static-exchange pruning margin per ply for the engine's own checks (Speculative
+/// Sacrifices; 4.5.0: 200): checking sacrifices survive pruning longer.
+pub static CHECK_SEE: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.check_see);
+/// Minimum depth of the sacrifice extension for the engine's own sacrifices (4.5.0: 4).
+pub static SAC_EXT_DEPTH: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_ext_depth);
 /// Evaluate with the NNUE (plus the personality layer) instead of the classical evaluation.
 pub static USE_NNUE: AtomicBool = AtomicBool::new(true);
 
@@ -608,6 +634,22 @@ pub struct SacParams {
     pub chain: i32,
     /// winning with no sacrifice yet: any sacrifice that keeps the game won gets the full bonus
     pub win: bool,
+    // ---- personality knobs, snapshotted at the start of a search (see personality.rs) ----
+    /// gambit (pawn sacrifice) bonus at the full sacrifice appetite
+    pub gambit: i32,
+    /// bonus share (percent) with one attack unit fewer than `units`, and with fewer still
+    pub partial_hi: i32,
+    pub partial_lo: i32,
+    /// leaving material hanging at the root counts as a sacrifice
+    pub tal_sacs: bool,
+    /// SEE pruning margin per ply for the engine's own checks
+    pub check_see: i32,
+    /// minimum depth of the sacrifice extension for the engine's own sacrifices
+    pub ext_depth: i32,
+    /// move-ordering bonus for the engine's quiet moves aimed at the enemy king zone
+    pub zone_order: i32,
+    /// root tie-break for forcing moves
+    pub forcing: i32,
 }
 
 impl SacParams {
@@ -619,6 +661,14 @@ impl SacParams {
             any: false,
             chain: chain_bonus(),
             win: false,
+            gambit: GAMBIT_BONUS.load(Ordering::Relaxed),
+            partial_hi: SAC_PARTIAL_HI.load(Ordering::Relaxed),
+            partial_lo: SAC_PARTIAL_LO.load(Ordering::Relaxed),
+            tal_sacs: TAL_SACS.load(Ordering::Relaxed),
+            check_see: CHECK_SEE.load(Ordering::Relaxed),
+            ext_depth: SAC_EXT_DEPTH.load(Ordering::Relaxed),
+            zone_order: ZONE_ORDER.load(Ordering::Relaxed),
+            forcing: FORCING_TIEBREAK.load(Ordering::Relaxed),
         }
     }
 }
@@ -633,9 +683,9 @@ pub static LAST_OBJ: AtomicI32 = AtomicI32::new(0);
 /// Every game should have a sacrifice: until AggroChess has made one, its appetite grows with
 /// every move, and faster when the game is already decided.
 pub static SAC_PRESSURE: AtomicBool = AtomicBool::new(true);
-/// Pressure tuning: the move it starts at, and growth per move.
-pub static PRESSURE_START: AtomicI32 = AtomicI32::new(20);
-pub static PRESSURE_STEP: AtomicI32 = AtomicI32::new(15);
+/// Pressure tuning: the move it starts at, and growth per move (Sacrifice Appetite; 4.5.0: 20, 15).
+pub static PRESSURE_START: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.pressure_start);
+pub static PRESSURE_STEP: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.pressure_step);
 /// Winning without having sacrificed (own score at least this, 0 = off): every material
 /// sacrifice that keeps the line at or above WIN_SAC_FLOOR gets the full bonus, so a won
 /// game still has its sacrifice before it ends.
@@ -644,11 +694,13 @@ pub static WIN_SAC_FLOOR: AtomicI32 = AtomicI32::new(300);
 /// ...and far ahead, the bonus grows with the lead (part of the margin above the floor), since a
 /// stretched evaluation makes every give-away look dearer than its material.
 pub static WIN_SAC_NOW: AtomicBool = AtomicBool::new(true);
-/// Sacrifice bonus once AggroChess has already sacrificed in this game (-1 = unchanged); +56 Elo at long time controls over keeping the full bonus.
-pub static AFTER_SAC_BONUS: AtomicI32 = AtomicI32::new(60);
+/// Sacrifice bonus once AggroChess has already sacrificed in this game (-1 = unchanged)
+/// (Sacrifice Appetite; 4.5.0: 60, which was +56 Elo at long time controls over keeping the
+/// full bonus; the Ultimate default keeps far more of the appetite on purpose).
+pub static AFTER_SAC_BONUS: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.after_sac_bonus);
 /// Chained sacrifices (Tal): a sacrifice within CHAIN_MOVES of our own moves after another
-/// one keeps (at least) this bonus. -1 = the normal sacrifice bonus.
-pub static CHAIN_BONUS: AtomicI32 = AtomicI32::new(150);
+/// one keeps (at least) this bonus. -1 = the normal sacrifice bonus (4.5.0: 150).
+pub static CHAIN_BONUS: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.chain_bonus);
 pub static CHAIN_MOVES: AtomicI32 = AtomicI32::new(2);
 /// ...but only while the sacrifice is working: our previous search scored at least this.
 pub static CHAIN_MIN: AtomicI32 = AtomicI32::new(50);
@@ -681,7 +733,9 @@ pub fn sac_params_for(board: &Board) -> SacParams {
         return p;
     }
     let moves = board.fullmove_number() as i32 - PRESSURE_START.load(Ordering::Relaxed);
-    let last = LAST_SCORE.load(Ordering::Relaxed).abs();
+    // The objective score of the previous search (without its sacrifice bonus): a line that
+    // only looked +3 because of the bonus must not count as a decided game.
+    let last = LAST_OBJ.load(Ordering::Relaxed).abs();
     // a decided game ends soon (and a sacrifice costs little there): hurry
     let decided = if last >= 600 { 30 } else if last >= 300 { 12 } else { 0 };
     let t = (moves.max(0) + decided).min(30);
@@ -692,7 +746,7 @@ pub fn sac_params_for(board: &Board) -> SacParams {
     p.bonus += step * t;
     p.floor -= step * t * 2 / 3;
     // when already well behind, every line scores below the usual floor: measure from where we are
-    let own = LAST_SCORE.load(Ordering::Relaxed);
+    let own = LAST_OBJ.load(Ordering::Relaxed);
     if own < 0 {
         p.floor = p.floor.min(own - 250);
     }
@@ -718,8 +772,9 @@ pub fn sac_params_for(board: &Board) -> SacParams {
     p
 }
 
-/// Attack units (knight/bishop/rook 1, queen 2) aimed at the king for the full sacrifice bonus.
-pub static SAC_FULL_UNITS: AtomicI32 = AtomicI32::new(3);
+/// Attack units (knight/bishop/rook 1, queen 2) aimed at the king for the full sacrifice bonus
+/// (Speculative Sacrifices; 4.5.0: 3).
+pub static SAC_FULL_UNITS: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_full_units);
 
 /// Search sacrifice candidates at the root one ply deeper.
 pub static SAC_VERIFY: AtomicBool = AtomicBool::new(false);
@@ -732,8 +787,9 @@ pub static ROOT_FILTER: std::sync::Mutex<Vec<Move>> = std::sync::Mutex::new(Vec:
 /// Root sacrifices that fail low in the null-window search are searched again as PV moves.
 pub static SAC_PV: AtomicBool = AtomicBool::new(true);
 
-/// Root moves that leave material hanging (not only the moved piece) count as sacrifices.
-pub static TAL_SACS: AtomicBool = AtomicBool::new(false);
+/// Root moves that leave material hanging (not only the moved piece) count as sacrifices
+/// (Speculative Sacrifices; 4.5.0: off).
+pub static TAL_SACS: AtomicBool = AtomicBool::new(crate::personality::INITIAL.tal_sacs);
 
 /// Recognise locked fortresses (Penrose's Puzzle) as draws.
 pub static FORTRESS: AtomicBool = AtomicBool::new(true);
@@ -1020,9 +1076,22 @@ pub struct Searcher {
     root_best_sb: i32,
     /// root moves to search (empty = all), for Tal's look
     root_only: Vec<Move>,
+    /// root moves to skip: the moves of the earlier MultiPV lines of this iteration
+    root_exclude: Vec<Move>,
+    /// the root's best move earned the sacrifice bonus as a sacrifice (not the forcing tie-break)
+    root_best_sac: bool,
     /// null-move verification: no null move for `nmp_color` before this ply
     nmp_min_ply: usize,
     nmp_color: Color,
+    /// Skill Level search reductions (neutral at full strength): extra late-move reduction,
+    /// quiet checks in quiescence, check extensions
+    weak_lmr: i32,
+    qs_checks: bool,
+    check_ext: bool,
+    /// ignore the GUI's `stop` (a tiny emergency search that must produce a move)
+    uninterruptible: bool,
+    /// time and node limits are checked every check_mask+1 nodes (finer for small node budgets)
+    check_mask: u64,
 }
 
 #[inline]
@@ -1065,12 +1134,19 @@ impl Searcher {
             nnue: USE_NNUE.load(Ordering::Relaxed),
             sac: SacParams::base(),
             root_only: Vec::new(),
+            root_exclude: Vec::new(),
+            root_best_sac: false,
             nmp_min_ply: 0,
             nmp_color: Color::White,
             mate: None,
             mate_probed: std::collections::HashMap::new(),
             root_sac: false,
             root_best_sb: 0,
+            weak_lmr: 0,
+            qs_checks: true,
+            check_ext: true,
+            uninterruptible: false,
+            check_mask: 1023,
         }
     }
 
@@ -1149,9 +1225,14 @@ impl Searcher {
 
     #[inline]
     fn check_time(&mut self) {
-        if self.nodes & 1023 == 0 {
-            self.shared_nodes.fetch_add(1024, Ordering::Relaxed);
+        if self.nodes & self.check_mask == 0 {
+            self.shared_nodes.fetch_add(self.check_mask + 1, Ordering::Relaxed);
             if self.main {
+                // the GUI's `stop` reaches every search, also the side searches of the long-think
+                // features, which run with stop flags of their own
+                if !self.uninterruptible && EXTERNAL_STOP.load(Ordering::Relaxed) {
+                    self.stop.store(true, Ordering::Relaxed);
+                }
                 if let Some(h) = self.hard_limit {
                     if self.start.elapsed() >= h {
                         self.stop.store(true, Ordering::Relaxed);
@@ -1274,7 +1355,8 @@ impl Searcher {
                     s += 6000;
                 }
                 if p != Piece::King && p != Piece::Pawn && piece_attacks(p, stm, m.to, occ) & ezone != 0 {
-                    s += 2500;
+                    // King Attack Priority: the engine tries its king-zone moves earlier
+                    s += if stm == self.root_color { self.sac.zone_order } else { 2500 };
                 }
                 s
             };
@@ -1341,7 +1423,7 @@ impl Searcher {
         self.pv_len[ply] = ply;
 
         let in_check = !board.checkers().is_empty();
-        if in_check && ply < MAX_PLY - 8 {
+        if in_check && ply < MAX_PLY - 8 && self.check_ext {
             depth += 1;
         }
         if depth <= 0 {
@@ -1622,6 +1704,9 @@ impl Searcher {
             if !root_filter.is_empty() && !root_filter.contains(&m) {
                 continue;
             }
+            if root && !self.root_exclude.is_empty() && self.root_exclude.contains(&m) {
+                continue; // MultiPV: already the move of an earlier line
+            }
             let capture = is_capture(board, m);
             let quiet = !capture && m.promotion.is_none();
             if quiet && skip_quiets {
@@ -1671,7 +1756,8 @@ impl Searcher {
                     }
                 } else if depth <= 8 {
                     let threshold = if gives_check {
-                        if stm == self.root_color { -200 * depth } else { -120 * depth }
+                        // Speculative Sacrifices: the engine's checking sacrifices survive longer
+                        if stm == self.root_color { -self.sac.check_see * depth } else { -120 * depth }
                     } else {
                         -90 * depth
                     };
@@ -1723,7 +1809,7 @@ impl Searcher {
             // verified one ply deeper instead of being dismissed (checks are already extended)
             if ext == 0
                 && !gives_check
-                && depth >= 4
+                && depth >= if stm == self.root_color { self.sac.ext_depth } else { 4 }
                 && (ply as i32) < self.root_depth
                 && ((quiet && attacks_zone) || (capture && ezone & m.to.bitboard().0 != 0))
                 && !see_ge(board, m, -100)
@@ -1741,11 +1827,13 @@ impl Searcher {
             // `sb` centipawns better than it is. The search window is shifted for that
             // move so alpha-beta stays exact, and the bonus is only granted if the line
             // is not clearly bad for us.
-            let sb = if sac_bonus > 0
+            let aimed_at_king = sac_bonus > 0
                 && (gives_check
                     || ezone & m.to.bitboard().0 != 0
-                    || (piece != Piece::King
-                        && piece_attacks(piece, stm, m.to, child.occupied().0) & ezone != 0))
+                    || (piece != Piece::King && piece_attacks(piece, stm, m.to, child.occupied().0) & ezone != 0));
+            // `is_sac`: the bonus is for a sacrifice (a gambit or the forcing tie-break is not one)
+            let (sb, is_sac) = if sac_bonus > 0
+                && aimed_at_king
                 && !see_ge(board, m, -150) // about two pawns or more: a single pawn is not a sacrifice
             {
                 if SAC_NEEDS_ATTACK.load(Ordering::Relaxed) {
@@ -1754,14 +1842,14 @@ impl Searcher {
                     let units = attack_units(&child, stm, ezone) as i32;
                     let full = self.sac.units;
                     if units >= full {
-                        sac_bonus
+                        (sac_bonus, true)
                     } else if units == full - 1 {
-                        sac_bonus * 3 / 5
+                        (sac_bonus * self.sac.partial_hi / 100, true)
                     } else {
-                        sac_bonus / 4
+                        (sac_bonus * self.sac.partial_lo / 100, true)
                     }
                 } else {
-                    sac_bonus
+                    (sac_bonus, true)
                 }
             } else if sac_bonus > 0
                 && piece == Piece::Rook
@@ -1770,36 +1858,52 @@ impl Searcher {
             {
                 // exchange sacrifice (Rxf6!, Rxc3!): a rook for a minor piece to wreck the
                 // pawns or open lines, even when it isn't aimed straight at the king
-                sac_bonus
-            } else if root && sac_bonus > 0 && TAL_SACS.load(Ordering::Relaxed) && leaves_material(&child) {
+                (sac_bonus, true)
+            } else if root && sac_bonus > 0 && self.sac.tal_sacs && leaves_material(&child) {
                 // Tal's kind of sacrifice: the moved piece is safe, but something else is left
                 // hanging (a piece, the exchange, two pawns) for the attack
                 let units = attack_units(&child, stm, ezone) as i32;
                 let full = self.sac.units;
                 if units >= full {
-                    sac_bonus * 3 / 4
+                    (sac_bonus * 3 / 4, true)
                 } else if units == full - 1 {
-                    sac_bonus * 2 / 5
+                    (sac_bonus * 2 / 5, true)
                 } else {
-                    sac_bonus / 6
+                    (sac_bonus / 6, true)
                 }
             } else if sac_bonus > 0 && self.sac.any && piece != Piece::King && !see_ge(board, m, -150) {
                 // under sacrifice pressure, any real material sacrifice counts (at a discount,
                 // in full when the game is won anyway and the line stays won)
-                if self.sac.win { sac_bonus } else { sac_bonus / 2 }
+                (if self.sac.win { sac_bonus } else { sac_bonus / 2 }, true)
+            } else if sac_bonus > 0
+                && self.sac.gambit > 0
+                && piece != Piece::King
+                && !see_ge(board, m, -60)
+                && (aimed_at_king
+                    || (piece == Piece::Pawn && eval::non_pawn_material(board, them) >= 1300))
+            {
+                // a gambit: about a pawn given for the attack or to open lines in the
+                // middlegame (bigger give-aways are sacrifices, handled above). It follows
+                // the sacrifice appetite down the tree and after the game's first sacrifice.
+                let g = self.sac.gambit * sac_bonus / self.sac.bonus.max(1);
+                if root && g < self.sac.forcing && (gives_check || attacks_zone || capture) {
+                    (self.sac.forcing, false)
+                } else {
+                    (g, false)
+                }
             } else if root && sac_bonus > 0 && (gives_check || attacks_zone || capture) {
-                12 // forcing tie-break: among near-equal moves prefer the forcing one
+                (self.sac.forcing, false) // forcing tie-break: among near-equal moves prefer the forcing one
             } else {
-                0
+                (0, false)
             };
             // verify sacrifice candidates at the root one ply deeper before trusting them
-            let new_depth = if root && sb > 12 && SAC_VERIFY.load(Ordering::Relaxed) { new_depth + 1 } else { new_depth };
+            let new_depth = if root && is_sac && SAC_VERIFY.load(Ordering::Relaxed) { new_depth + 1 } else { new_depth };
             if root {
-                self.root_sac = sb > 12;
+                self.root_sac = is_sac;
             }
             let (wa, wb) = (alpha - sb, beta - sb); // search window for this move
             let mut score;
-            let full_sac = root && (sb > 12 || (tal && gives_check)) && SAC_FULL_DEPTH.load(Ordering::Relaxed) && deep();
+            let full_sac = root && (is_sac || (tal && gives_check)) && SAC_FULL_DEPTH.load(Ordering::Relaxed) && deep();
             // at the root, when the best so far is a draw, every alternative gets its full depth:
             // a quiet winning try is invisible through reductions (Amann's Qd8!)
             // the same when the best so far is clearly bad: hidden resources (a sacrifice into a
@@ -1843,6 +1947,7 @@ impl Searcher {
                 if egl > 0 && minor_ending(board) {
                     r -= egl;
                 }
+                r += self.weak_lmr; // Skill Level: a more careless search (0 at full strength)
                 let d = (new_depth - r).clamp(1, new_depth.max(1));
                 score = -self.search(&child, d, -wa - 1, -wa, ply + 1, true);
                 if score > wa && d < new_depth {
@@ -1861,7 +1966,7 @@ impl Searcher {
                 && sac_researches < if no_draw_lmr { ROOT_RESEARCH_MAX.load(Ordering::Relaxed) } else { 1 }
                 && tal
                 && SAC_PV.load(Ordering::Relaxed)
-                && (gives_check || sb > 12 || (no_draw_lmr && !see_ge(board, m, -150)))
+                && (gives_check || is_sac || (no_draw_lmr && !see_ge(board, m, -150)))
                 && score > wa - 1000
                 && leaves_material(&child)
             {
@@ -1911,6 +2016,7 @@ impl Searcher {
                     best_move = Some(m);
                     if root {
                         self.root_best_sb = sb_added;
+                        self.root_best_sac = is_sac && sb_added > 0;
                     }
                     if pv_node {
                         self.update_pv(ply, m);
@@ -1956,7 +2062,8 @@ impl Searcher {
             }
         }
 
-        if excluded.is_none() {
+        // a root searched without some of its moves (MultiPV) must not overwrite the root entry
+        if excluded.is_none() && !(root && !self.root_exclude.is_empty()) {
             let bound = if best_score >= beta {
                 Bound::Lower
             } else if pv_node && best_score > orig_alpha {
@@ -2060,7 +2167,7 @@ impl Searcher {
             let r = if stm == Color::White { cozy_chess::Rank::Sixth } else { cozy_chess::Rank::Third };
             Square::new(f, r).bitboard().0
         }).unwrap_or(0);
-        let want_checks = !in_check && qply == 0;
+        let want_checks = !in_check && qply == 0 && self.qs_checks;
         let (knight_chk, bishop_chk, rook_chk, pawn_chk) = if want_checks {
             let ek = board.king(them);
             let occ = BitBoard(board.occupied().0);
@@ -2336,6 +2443,13 @@ pub struct Limits {
     pub nodes: Option<u64>,
 }
 
+/// The score shown to the GUI: the search score without the root move's sacrifice bonus, so
+/// a GUI (and its adjudication) sees the engine's objective view of a sacrificial line. The
+/// personality's evaluation terms are still part of it.
+fn shown_score(score: i32, sb: i32) -> i32 {
+    if score.abs() < MATE_BOUND { score - sb } else { score }
+}
+
 fn format_score(score: i32) -> String {
     if score >= MATE_BOUND {
         format!("mate {}", (MATE - score + 1) / 2)
@@ -2388,13 +2502,26 @@ pub fn search_position(
 ) -> (Option<Move>, i32) {
     let infinite = limits.hard.is_none() && limits.soft.is_none() && limits.depth.is_none() && limits.nodes.is_none();
     let first = INFINITE_LOOK_MS.load(Ordering::Relaxed);
-    if !infinite || first <= 0 || !ROOT_FILTER.lock().unwrap().is_empty() {
+    if !infinite
+        || first <= 0
+        || !ROOT_FILTER.lock().unwrap().is_empty()
+        || !crate::skill::full_strength()
+        || MULTI_PV.load(Ordering::Relaxed) > 1
+    {
         return search_position_inner(board, history_hashes, limits, stop, print_info);
     }
     let v = Duration::from_millis(first as u64);
     let timed = Limits { depth: None, soft: Some(v), hard: Some(v), nodes: None };
     let (bm1, sc1) = search_position_inner(board, history_hashes, timed, Arc::clone(&stop), print_info);
-    if stop.load(Ordering::Relaxed) || bm1.is_none() {
+    // The timed part ends by raising `stop` itself (to halt its helper threads), so only the
+    // GUI's own `stop` ends the analysis here. Re-check after clearing the flag: a `stop` that
+    // arrives in between must not be lost.
+    if EXTERNAL_STOP.load(Ordering::SeqCst) || bm1.is_none() {
+        return (bm1, sc1);
+    }
+    stop.store(false, Ordering::SeqCst);
+    if EXTERNAL_STOP.load(Ordering::SeqCst) {
+        stop.store(true, Ordering::SeqCst);
         return (bm1, sc1);
     }
     let pv1 = {
@@ -2427,19 +2554,25 @@ fn search_position_inner(
     let tt = get_global_tt(TT_SIZE_MB.load(Ordering::Relaxed));
     tt.new_search();
     let mut limits = limits;
-    let skill = SKILL.load(Ordering::Relaxed).clamp(0, 20);
-    if skill < 20 {
-        let cap = (200.0 * 1.45f64.powi(skill)) as u64;
-        limits.nodes = Some(limits.nodes.map_or(cap, |n| n.min(cap)));
-        eval::NOISE.store((20 - skill) * 7, Ordering::Relaxed);
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos() as u64)
-            .unwrap_or(1);
-        eval::NOISE_SEED.store(seed, Ordering::Relaxed);
-    } else {
-        eval::NOISE.store(0, Ordering::Relaxed);
+    // ---- Skill Level ----
+    // `weak` is None at full strength (Skill Level 21): then nothing below differs from the
+    // unrestricted search. Otherwise the level's node and depth budget is applied on top of
+    // whatever the GUI asked for, and part of the time goes (MultiPV costs depth).
+    let weak = crate::skill::params();
+    let full = weak.is_none();
+    let user_nodes = limits.nodes.is_some();
+    if let Some(w) = weak {
+        if w.nodes > 0 {
+            limits.nodes = Some(limits.nodes.map_or(w.nodes, |n| n.min(w.nodes)));
+        }
+        if w.depth > 0 {
+            limits.depth = Some(limits.depth.map_or(w.depth, |d| d.min(w.depth)));
+        }
+        if w.time_pct < 100 {
+            limits.soft = limits.soft.map(|t| t * w.time_pct / 100);
+        }
     }
+    eval::NOISE.store(0, Ordering::Relaxed);
     eval::set_engine_color(Some(board.side_to_move()));
 
     // history before the root (exclude the root position itself)
@@ -2459,10 +2592,11 @@ fn search_position_inner(
     }
 
     // deep mode: a long think (or open-ended analysis)
-    let deep_mode = match limits.hard {
-        Some(h) => h >= Duration::from_millis(DEEP_MIN_MS.load(Ordering::Relaxed).max(0) as u64),
-        None => limits.depth.is_none() && limits.nodes.is_none(),
-    };
+    let deep_mode = full
+        && match limits.hard {
+            Some(h) => h >= Duration::from_millis(DEEP_MIN_MS.load(Ordering::Relaxed).max(0) as u64),
+            None => limits.depth.is_none() && limits.nodes.is_none(),
+        };
     DEEP.store(deep_mode, Ordering::Relaxed);
     TAL_MODE.store(false, Ordering::Relaxed);
 
@@ -2477,7 +2611,7 @@ fn search_position_inner(
     let tal_cands = if TAL_LOOK.load(Ordering::Relaxed)
         && deep_mode
         && sac.bonus > 0
-        && skill >= 20
+        && full
         && limits.hard.map_or(false, |h| h >= Duration::from_millis(TAL_LOOK_MIN_MS.load(Ordering::Relaxed) as u64))
         && limits.nodes.is_none()
         && limits.depth.is_none()
@@ -2505,10 +2639,18 @@ fn search_position_inner(
     s.start = start;
     s.hard_limit = limits.hard;
     s.node_limit = limits.nodes;
+    if let Some(w) = weak {
+        s.weak_lmr = w.lmr_add;
+        s.qs_checks = w.qs_checks;
+        s.check_ext = w.check_ext;
+        if w.nodes > 0 && w.nodes < 100_000 {
+            s.check_mask = 63; // small node budgets are kept to within a few dozen nodes
+        }
+    }
 
     // ---- Tal's forcing lines (deep mode, in trouble) ----
     let mut quick_score: Option<i32> = None;
-    if deep_mode && PRIME.load(Ordering::Relaxed) && skill >= 20 && ROOT_FILTER.lock().unwrap().is_empty() {
+    if deep_mode && PRIME.load(Ordering::Relaxed) && full && ROOT_FILTER.lock().unwrap().is_empty() {
         let base = full_hard;
         if let Some(h) = base {
             quick_score = prime_forcing_lines(board, &s.hashes, &tt, sac, h * PRIME_PCT.load(Ordering::Relaxed).clamp(0, 60) as u32 / 100, print_info);
@@ -2539,7 +2681,8 @@ fn search_position_inner(
 
     // helper threads start only now: the forcing lines above are searched on their own first,
     // so the helpers neither take the CPU from them nor crowd their results out of the table
-    let num_threads = NUM_THREADS.load(Ordering::Relaxed).max(1);
+    // (a weakened engine searches with one thread: its strength is set by its own budget)
+    let num_threads = if full { NUM_THREADS.load(Ordering::Relaxed).max(1) } else { 1 };
 
     let mut handles = Vec::new();
     for t in 1..num_threads {
@@ -2564,29 +2707,90 @@ fn search_position_inner(
         }).expect("failed to spawn helper thread"));
     }
 
-    let mut best_move = Some(ROOT_FILTER.lock().unwrap().first().copied().unwrap_or(root_moves[0]));
+    let root_filter_now = ROOT_FILTER.lock().unwrap().clone();
+    let mut best_move = Some(root_filter_now.first().copied().unwrap_or(root_moves[0]));
     let mut best_score = 0;
+    let mut best_sb = 0;
     let mut prev_best: Option<Move> = None;
     let mut stability = 0;
     let mut prev_score = 0;
     let mut done_depth = 0;
+    // MultiPV: lines shown to the GUI, and lines searched (more for a weakened engine, which
+    // chooses among them). Never more than the moves there are to search.
+    let shown_pv = MULTI_PV.load(Ordering::Relaxed).max(1);
+    let allowed = if root_filter_now.is_empty() {
+        root_moves.len()
+    } else {
+        root_filter_now.iter().filter(|m| root_moves.contains(m)).count().max(1)
+    };
+    let n_lines = weak.map_or(shown_pv, |w| w.multipv.max(shown_pv)).min(allowed).max(1);
+    let mut lines: Vec<crate::skill::Line> = Vec::new();
+    // the node budget only applies from depth 2 on: depth 1 always completes, so even the
+    // smallest budget plays a move it has actually looked at
+    let node_limit = s.node_limit.take();
+    let mut clean_depth1 = false;
 
     TAL_MODE.store(false, Ordering::Relaxed);
     for depth in 1..=max_depth {
         s.root_depth = depth;
         s.seldepth = 0;
+        if depth == 2 {
+            s.node_limit = node_limit;
+        }
         TAL_MODE.store(
             MATE_NET.load(Ordering::Relaxed) && deep() && depth > 8 && best_score < TAL_MODE_BELOW.load(Ordering::Relaxed),
             Ordering::Relaxed,
         );
+        s.root_best_sb = 0;
+        s.root_best_sac = false;
         let score = aspiration(&mut s, board, depth, best_score);
         if stop.load(Ordering::Relaxed) && depth > 1 {
             // partial iteration: keep the move from the last completed one
             break;
         }
-        let pv = s.root_pv();
+        if depth == 1 {
+            clean_depth1 = !stop.load(Ordering::Relaxed);
+        }
+        let mut pv = s.root_pv();
+        let mut score = score;
+        if n_lines > 1 {
+            // the other MultiPV lines: the root searched again without the moves found so far
+            let mut now: Vec<crate::skill::Line> = Vec::new();
+            if let Some(&m) = pv.first() {
+                now.push(crate::skill::Line { mv: m, score, pv: pv.clone(), sb: s.root_best_sb, sac: s.root_best_sac });
+            }
+            let mut partial = false;
+            while !now.is_empty() && now.len() < n_lines {
+                s.root_exclude = now.iter().map(|l| l.mv).collect();
+                s.root_best_sb = 0;
+                s.root_best_sac = false;
+                let prev = lines.get(now.len()).map_or(score, |l| l.score);
+                let sc = aspiration(&mut s, board, depth, prev);
+                if stop.load(Ordering::Relaxed) {
+                    partial = true;
+                    break;
+                }
+                match s.root_pv().first().copied() {
+                    Some(m) if !s.root_exclude.contains(&m) => {
+                        now.push(crate::skill::Line { mv: m, score: sc, pv: s.root_pv(), sb: s.root_best_sb, sac: s.root_best_sac });
+                    }
+                    _ => break,
+                }
+            }
+            s.root_exclude.clear();
+            if partial && depth > 1 && !lines.is_empty() {
+                break; // keep the last completed iteration's lines
+            }
+            now.sort_by(|a, b| b.score.cmp(&a.score));
+            if let Some(top) = now.first() {
+                pv = top.pv.clone();
+                score = top.score;
+            }
+            lines = now;
+        }
         if let Some(&m) = pv.first() {
             best_move = Some(m);
+            best_sb = if n_lines > 1 { lines.first().map_or(0, |l| l.sb) } else { s.root_best_sb };
         }
         best_score = score;
         done_depth = depth;
@@ -2600,19 +2804,36 @@ fn search_position_inner(
 
         let elapsed = start.elapsed();
         if print_info {
-            let total_nodes = nodes.load(Ordering::Relaxed) + (s.nodes & 1023);
+            let total_nodes = nodes.load(Ordering::Relaxed) + (s.nodes & s.check_mask);
             let ms = elapsed.as_millis().max(1);
-            out!(
-                "info depth {} seldepth {} score {} nodes {} nps {} hashfull {} time {} pv {}",
-                depth,
-                s.seldepth,
-                format_score(score),
-                total_nodes,
-                (total_nodes as u128 * 1000 / ms) as u64,
-                tt.hashfull(),
-                ms,
-                pv_string(board, &pv)
-            );
+            if shown_pv > 1 {
+                for (i, l) in lines.iter().take(shown_pv).enumerate() {
+                    out!(
+                        "info depth {} seldepth {} multipv {} score {} nodes {} nps {} hashfull {} time {} pv {}",
+                        depth,
+                        s.seldepth,
+                        i + 1,
+                        format_score(shown_score(l.score, l.sb)),
+                        total_nodes,
+                        (total_nodes as u128 * 1000 / ms) as u64,
+                        tt.hashfull(),
+                        ms,
+                        pv_string(board, &l.pv)
+                    );
+                }
+            } else {
+                out!(
+                    "info depth {} seldepth {} score {} nodes {} nps {} hashfull {} time {} pv {}",
+                    depth,
+                    s.seldepth,
+                    format_score(shown_score(score, best_sb)),
+                    total_nodes,
+                    (total_nodes as u128 * 1000 / ms) as u64,
+                    tt.hashfull(),
+                    ms,
+                    pv_string(board, &pv)
+                );
+            }
         }
 
         if best_score.abs() >= MATE_BOUND && depth >= 8 && limits.soft.is_some() {
@@ -2669,6 +2890,45 @@ fn search_position_inner(
     stop.store(true, Ordering::Relaxed);
     for h in handles {
         let _ = h.join();
+    }
+    s.node_limit = node_limit;
+
+    // Stopped before even depth 1 was complete (a `stop` or a tiny time budget): the move
+    // from that partial iteration may be any legal move, so take a short look that cannot be
+    // interrupted (a few thousand nodes at most) instead.
+    if !clean_depth1 {
+        if let Some((m, sc)) = emergency_move(board, &s.hashes, &tt, sac, &root_filter_now) {
+            best_move = Some(m);
+            best_score = sc;
+            best_sb = 0;
+            lines.clear();
+        }
+    }
+
+    // ---- Skill Level: choose among the candidate lines ----
+    if let Some(w) = weak {
+        if lines.len() > 1 {
+            let c = crate::skill::choose(board, &lines, &w);
+            let l = &lines[c.index];
+            if print_info {
+                out!(
+                    "info string skill level {} plays {} (line {} of {}, {} cp below the best, allowance {} cp)",
+                    crate::skill::level(),
+                    cozy_chess::util::display_uci_move(board, l.mv),
+                    c.index + 1,
+                    lines.len(),
+                    c.loss,
+                    c.allowance
+                );
+                if c.index > 0 && shown_pv == 1 {
+                    out!("info depth {} score {} pv {}", done_depth, format_score(shown_score(l.score, l.sb)), pv_string(board, &l.pv));
+                }
+            }
+            best_move = Some(l.mv);
+            best_score = l.score;
+            best_sb = l.sb;
+            *LAST_PV.lock().unwrap() = l.pv.clone();
+        }
     }
 
     // ---- rescue look ----
@@ -2824,7 +3084,7 @@ fn search_position_inner(
                     if look_stop.load(Ordering::Relaxed) {
                         break;
                     }
-                    last = Some((sc, depth, t.root_pv()));
+                    last = Some((sc, depth, t.root_pv(), t.root_best_sb));
                     // hopeless: far below the best move even after a real search
                     if depth >= 12 && sc < best_score - 900 && sc.abs() < MATE_BOUND && ci + 1 < cands.len() {
                         break;
@@ -2833,16 +3093,17 @@ fn search_position_inner(
                         out!("info string look {} d{} {} t{} pv {}", cozy_chess::util::display_uci_move(board, cand), depth, sc, start.elapsed().as_millis(), pv_string(board, &t.root_pv()));
                     }
                 }
-                if let Some((sc, d, pv)) = last {
+                if let Some((sc, d, pv, sb)) = last {
                     if print_info {
-                        out!("info string Tal's look: {} scores {} at depth {}", cozy_chess::util::display_uci_move(board, cand), sc, d);
+                        out!("info string Tal's look: {} scores {} at depth {}", cozy_chess::util::display_uci_move(board, cand), shown_score(sc, sb), d);
                     }
                     if sc > best_score + 30 && d >= 10 && sc.abs() < MATE_BOUND || (sc >= MATE_BOUND && sc > best_score) {
                         best_move = Some(cand);
                         best_score = sc;
+                        best_sb = sb;
                         *LAST_PV.lock().unwrap() = pv.clone();
                         if print_info {
-                            out!("info depth {} score {} pv {}", d, format_score(sc), pv_string(board, &pv));
+                            out!("info depth {} score {} pv {}", d, format_score(shown_score(sc, sb)), pv_string(board, &pv));
                         }
                     }
                 }
@@ -2856,7 +3117,8 @@ fn search_position_inner(
     // ---- finish beautifully ----
     // With a forced mate in hand, prefer a mate that starts with a sacrifice (a queen sac
     // above all), as long as it still mates within two moves of the fastest mate.
-    if best_score >= MATE_BOUND && s.node_limit.is_none() && BEAUTIFUL_MATES.load(Ordering::Relaxed) {
+    if best_score >= MATE_BOUND && !user_nodes && BEAUTIFUL_MATES.load(Ordering::Relaxed) {
+        s.node_limit = None; // (a Skill Level budget is spent; this look has its own time budget)
         if let Some(bm) = best_move {
             let mate_plies = MATE - best_score;
             // no sacrifice yet this game: a mating sacrifice may take a little longer, and it has
@@ -2918,7 +3180,8 @@ fn search_position_inner(
     // the most of the opponent's natural replies (captures and checks count extra) would throw
     // their advantage away.
     if SWINDLE.load(Ordering::Relaxed)
-        && s.node_limit.is_none()
+        && full
+        && !user_nodes
         && best_score <= -SWINDLE_MIN
         && best_score > -SWINDLE_MAX
         && root_moves.len() >= 2
@@ -2945,8 +3208,39 @@ fn search_position_inner(
         }
     }
     LAST_SCORE.store(best_score, Ordering::Relaxed);
-    LAST_OBJ.store(if best_score.abs() < MATE_BOUND { best_score - s.root_best_sb } else { best_score }, Ordering::Relaxed);
+    LAST_OBJ.store(if best_score.abs() < MATE_BOUND { best_score - best_sb } else { best_score }, Ordering::Relaxed);
     (best_move, best_score)
+}
+
+/// A short search that cannot be interrupted, for when the real one was stopped before it had
+/// finished even depth 1 (a `stop` straight after `go`, or a tiny time budget): the move it
+/// returns has at least been looked at. At most a few thousand nodes.
+fn emergency_move(board: &Board, hist: &[u64], tt: &Arc<TranspositionTable>, sac: SacParams, root_filter: &[Move]) -> Option<(Move, i32)> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let mut t = Searcher::new(Arc::clone(tt), Arc::clone(&stop), Arc::new(AtomicU64::new(0)), true);
+    t.sac = sac;
+    t.hashes = hist.to_vec();
+    t.root_color = board.side_to_move();
+    t.start = Instant::now();
+    t.uninterruptible = true;
+    t.node_limit = Some(4096);
+    t.check_mask = 255;
+    t.root_only = root_filter.to_vec();
+    let mut best = None;
+    for depth in 1..=4 {
+        t.root_depth = depth;
+        let sc = t.search(board, depth, -INF, INF, 0, false);
+        if stop.load(Ordering::Relaxed) && depth > 1 {
+            break;
+        }
+        if let Some(&m) = t.root_pv().first() {
+            best = Some((m, sc));
+        }
+        if stop.load(Ordering::Relaxed) {
+            break;
+        }
+    }
+    best
 }
 
 /// Look for a trickier move than `bm` when worse. Returns (move, its trap rate, bm's trap rate).

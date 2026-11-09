@@ -583,6 +583,7 @@ mod tests {
 
     #[test]
     fn every_book_line_is_legal() {
+        let _lock = crate::test_lock();
         let (map, errors) = build_book();
         for e in &errors {
             eprintln!("{}", e);
@@ -599,6 +600,7 @@ mod dump {
     #[test]
     #[ignore]
     fn dump_book() {
+        let _lock = crate::test_lock();
         let mut out = String::new();
         for &(side, _, text) in LINES {
             let mine = if side == 'W' { Color::White } else { Color::Black };
@@ -625,6 +627,7 @@ mod first_moves {
     use super::*;
     #[test]
     fn first_move_weights() {
+        let _lock = crate::test_lock();
         let (map, _) = build_book();
         let mut v = map.get(&Board::default().hash()).unwrap().clone();
         v.sort();
@@ -653,6 +656,7 @@ mod queen_trades {
     #[test]
     #[ignore]
     fn scan_queen_trades() {
+        let _lock = crate::test_lock();
         let mut out = String::new();
         for &(side, _, text) in LINES {
             let mine = if side == 'W' { Color::White } else { Color::Black };
@@ -700,9 +704,8 @@ mod queen_trades {
                 ));
             }
         }
-        eval::AGGRESSION.store(220, Ordering::Relaxed);
-        search::SACRIFICE_BONUS.store(270, Ordering::Relaxed);
-        search::CONTEMPT.store(50, Ordering::Relaxed);
+        // back to the personality the options say (this scan changed some of its parameters)
+        crate::personality::apply();
         std::fs::write("/tmp/queen_trades.txt", &out).unwrap();
         eprintln!("{}", out);
     }

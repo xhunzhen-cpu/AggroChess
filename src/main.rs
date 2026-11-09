@@ -8,8 +8,18 @@ pub mod datagen;
 pub mod eval;
 pub mod matesearch;
 pub mod nnue;
+pub mod personality;
 pub mod search;
+pub mod skill;
 pub mod uci;
+
+/// Tests share the engine's process-wide settings (atomics): they take this lock so that one
+/// test's settings never leak into another running in parallel.
+#[cfg(test)]
+pub fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 fn main() {
     let default_threads = std::thread::available_parallelism()
@@ -17,6 +27,12 @@ fn main() {
         .unwrap_or(1)
         .min(8);
     search::NUM_THREADS.store(default_threads, std::sync::atomic::Ordering::Relaxed);
+    personality::apply();
+    // Skill Level move choice: random per game, or reproducible with AGGRO_SEED=<number>
+    if let Some(seed) = std::env::var("AGGRO_SEED").ok().and_then(|v| v.parse::<u64>().ok()) {
+        skill::FIXED_SEED.store(seed, std::sync::atomic::Ordering::Relaxed);
+    }
+    skill::reseed();
 
     // Optional: `aggro_chess bench` prints a fixed-depth node count / speed figure.
     let args: Vec<String> = std::env::args().collect();
@@ -190,6 +206,7 @@ mod tests {
 
     #[test]
     fn prefers_sacrificial_mate() {
+        let _lock = crate::test_lock();
         // Re8# mates at once, but Qd8+! Bxd8 Re8# is prettier
         let b: Board = "6k1/5ppp/5b2/8/8/3Q4/5PPP/4R1K1 w - - 0 1".parse().unwrap();
         let limits = search::Limits { depth: None, soft: Some(std::time::Duration::from_millis(500)), hard: Some(std::time::Duration::from_millis(1000)), nodes: None };
@@ -200,6 +217,7 @@ mod tests {
 
     #[test]
     fn swindle_stays_in_time_and_legal() {
+        let _lock = crate::test_lock();
         // White is clearly worse here; with swindles on it may pick a trickier move, but it must
         // still be legal and respect the hard time limit
         let b: Board = "5r1R/ppp2kp1/3p4/4npr1/4P3/2P4Q/PPq3PP/4R1K1 w - - 3 23".parse().unwrap();
@@ -213,6 +231,7 @@ mod tests {
 
     #[test]
     fn book_move_is_legal() {
+        let _lock = crate::test_lock();
         let book = book::Book::new("ph-gambitbook.bin");
         let b = Board::default();
         let mv = book.get_move(&b).expect("book should have a move for startpos");
@@ -222,12 +241,14 @@ mod tests {
 
     #[test]
     fn eval_startpos_is_balanced() {
+        let _lock = crate::test_lock();
         let s = eval_neutral("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         assert!(s.abs() < 40, "startpos eval {}", s);
     }
 
     #[test]
     fn eval_is_color_symmetric() {
+        let _lock = crate::test_lock();
         // Mirrored positions must evaluate identically when no engine side is set.
         let pairs = [
             (
@@ -246,18 +267,21 @@ mod tests {
 
     #[test]
     fn eval_material_sanity() {
+        let _lock = crate::test_lock();
         let up_knight = eval_neutral("rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         assert!(up_knight > 200, "being a knight up should be clearly winning: {}", up_knight);
     }
 
     #[test]
     fn insufficient_material_is_draw() {
+        let _lock = crate::test_lock();
         assert_eq!(eval_neutral("8/8/4k3/8/8/2B5/4K3/8 w - - 0 1"), 0);
         assert_eq!(eval_neutral("8/8/4k3/8/8/2N5/4K3/8 b - - 0 1"), 0);
     }
 
     #[test]
     fn exposed_king_is_penalised() {
+        let _lock = crate::test_lock();
         // Same material; black king stripped of its pawn shield with white pieces aimed at it.
         let safe = eval_neutral("r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7");
         let open = eval_neutral("r1bq1rk1/pppp1p2/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7");
@@ -266,6 +290,7 @@ mod tests {
 
     #[test]
     fn aggression_raises_attack_value() {
+        let _lock = crate::test_lock();
         let fen = "r1bq1rk1/pppp1p2/2n2n1Q/2b1p3/2B1P3/2NP1N2/PPP2PPP/R4RK1 w - - 0 9";
         eval::set_engine_color(None);
         let neutral = eval::evaluate(&board(fen));
@@ -277,6 +302,7 @@ mod tests {
 
     #[test]
     fn finds_mate_in_one() {
+        let _lock = crate::test_lock();
         let (mv, score) = best("r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4", 6, 2000);
         assert_eq!(mv, "f3f7");
         assert!(score > search::MATE_BOUND);
@@ -284,12 +310,14 @@ mod tests {
 
     #[test]
     fn finds_back_rank_mate() {
+        let _lock = crate::test_lock();
         let (mv, _) = best("6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", 6, 2000);
         assert_eq!(mv, "d1d8");
     }
 
     #[test]
     fn checkmated_side_has_no_move() {
+        let _lock = crate::test_lock();
         let (mv, score) = best("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3", 4, 500);
         assert!(mv.is_empty());
         assert!(score < -search::MATE_BOUND);
@@ -297,6 +325,7 @@ mod tests {
 
     #[test]
     fn greek_gift_sacrifice() {
+        let _lock = crate::test_lock();
         // Classic Bxh7+ setup: Bxh7+ Kxh7 Ng5+ with the queen joining via h5.
         let (mv, score) = best("r1bq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 0 8", 30, 8000);
         assert_eq!(mv, "d3h7", "engine should find the Greek gift, score {}", score);
@@ -304,6 +333,7 @@ mod tests {
 
     #[test]
     fn no_cheap_pawn_sacrifice_in_the_albin() {
+        let _lock = crate::test_lock();
         // 1.d4 d5 2.c4 e5 3.dxe5 d4 4.Nf3 Nc6 5.a3 Be6 6.Qb3: 6...d3? only "attacks" e2 and loses
         // about three pawns; a single pawn must not earn the sacrifice bonus (v4.0 played it)
         let (mv, _) = best("r2qkbnr/ppp2ppp/2n1b3/4P3/2Pp4/PQ3N2/1P2PPPP/RNB1KB1R b KQkq - 2 6", 30, 2000);
@@ -312,6 +342,7 @@ mod tests {
 
     #[test]
     fn does_not_hang_knight() {
+        let _lock = crate::test_lock();
         // 1. e4 c6 2. Nf3 d5 3. d4 dxe4: the f3 knight is attacked and must move.
         let (mv, _) = best("rnbqkbnr/pp2pppp/2p5/8/3Pp3/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 4", 30, 2000);
         assert!(["f3e5", "f3g5", "f3d2", "f3g1", "f3h4"].contains(&mv.as_str()), "played {}", mv);
@@ -319,6 +350,7 @@ mod tests {
 
     #[test]
     fn see_values() {
+        let _lock = crate::test_lock();
         let b = board("4k3/4b3/2n5/8/8/8/8/4R1K1 w - - 0 1");
         let m = cozy_chess::util::parse_uci_move(&b, "e1e7").unwrap();
         assert!(!search::see_ge(&b, m, 0), "Rxe7 loses the exchange");
@@ -335,6 +367,7 @@ mod tests {
 
     #[test]
     fn castling_round_trip() {
+        let _lock = crate::test_lock();
         let mut b = Board::default();
         for mv in ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5"] {
             let m = cozy_chess::util::parse_uci_move(&b, mv).unwrap();
@@ -347,6 +380,7 @@ mod tests {
 
     #[test]
     fn repetition_is_handled() {
+        let _lock = crate::test_lock();
         let mut b = Board::default();
         let mut hist = vec![b.hash()];
         for mv in ["g1f3", "g8f6", "f3g1", "f6g8"] {
@@ -366,6 +400,7 @@ mod tests {
 
     #[test]
     fn tt_round_trip() {
+        let _lock = crate::test_lock();
         use cozy_chess::{Move, Square};
         let tt = search::TranspositionTable::new(1);
         let mv = Some(Move { from: Square::E2, to: Square::E4, promotion: None });
@@ -381,6 +416,7 @@ mod tests {
 
     #[test]
     fn multithreaded_search_returns_move() {
+        let _lock = crate::test_lock();
         let r = std::thread::Builder::new()
             .stack_size(64 * 1024 * 1024)
             .spawn(|| {
@@ -398,6 +434,7 @@ mod tests {
     }
     #[test]
     fn penrose_fortress_is_a_draw() {
+        let _lock = crate::test_lock();
         // Penrose's Puzzle: Black has a queen, two rooks and three bishops, but everything except
         // the dark-squared bishops is walled in and White lives on the light squares
         let b: Board = "8/p7/kpP5/qrp1b3/rpP2b2/pP4b1/P3K3/8 w - - 0 1".parse().unwrap();
@@ -412,6 +449,7 @@ mod tests {
 
     #[test]
     fn king_clamp_rewards_h6_and_a6() {
+        let _lock = crate::test_lock();
         use std::sync::atomic::Ordering;
         eval::set_engine_color(Some(cozy_chess::Color::White));
         let with = |fen: &str, c: i32| {
@@ -431,6 +469,7 @@ mod tests {
 
     #[test]
     fn sealed_wall_is_a_draw() {
+        let _lock = crate::test_lock();
         // the end of Friedel's study: Black has two rooks and a bishop more, but the rammed pawn
         // chain lets nothing through
         let b: Board = "3k4/1r2p3/r2pPp2/b1pP1Pp1/1pP3Pp/pP2K2P/P7/8 b - - 0 6".parse().unwrap();
@@ -445,6 +484,7 @@ mod tests {
 
     #[test]
     fn plaskett_tal_move_is_found_in_trouble() {
+        let _lock = crate::test_lock();
         // Plaskett's Puzzle after 1.Nf6+ Kg7 2.Nh5+ Kg6: only 3.Bc2+!! wins (Tal solved it).
         // White looks lost here, which switches Tal mode on.
         if std::env::var("AGGRO_SLOW_TESTS").is_err() {
@@ -460,6 +500,115 @@ mod tests {
         assert_eq!(format!("{}", cozy_chess::util::display_uci_move(&b, m.unwrap())), "d1c2", "score {}", score);
     }
 
+    // ---- Ultimate Sacrificial Edition: Skill Level and personality options ----
+
+    /// Search a position with a time budget on a big-stack thread.
+    fn timed(fen: &str, ms: u64) -> (Option<cozy_chess::Move>, Board, std::time::Duration) {
+        let fen = fen.to_string();
+        std::thread::Builder::new()
+            .stack_size(64 * 1024 * 1024)
+            .spawn(move || {
+                let b = board(&fen);
+                let limits = search::Limits { depth: None, soft: Some(Duration::from_millis(ms / 2)), hard: Some(Duration::from_millis(ms)), nodes: None };
+                let t = std::time::Instant::now();
+                let (m, _) = search::search_position(&b, &[b.hash()], limits, Arc::new(AtomicBool::new(false)), false);
+                (m, b, t.elapsed())
+            })
+            .unwrap()
+            .join()
+            .unwrap()
+    }
+
+    #[test]
+    fn skill_levels_play_legal_moves_in_time() {
+        let _lock = crate::test_lock();
+        search::NUM_THREADS.store(1, Ordering::Relaxed);
+        let fens = [
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            "r1bq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 0 8",
+            "5r1R/ppp2kp1/3p4/4npr1/4P3/2P4Q/PPq3PP/4R1K1 w - - 3 23",
+            "8/8/3k4/3p4/3P4/3K4/8/8 w - - 0 1",
+            "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+            "4k3/8/8/8/8/8/4q3/4K3 w - - 0 1", // one legal move
+        ];
+        for level in [1, 2, 5, 8, 11, 14, 17, 20] {
+            skill::set_level(level);
+            for fen in fens {
+                let (m, b, took) = timed(fen, 400);
+                let m = m.unwrap_or_else(|| panic!("no move at level {} in {}", level, fen));
+                assert!(b.is_legal(m), "illegal {:?} at level {} in {}", m, level, fen);
+                assert!(took < Duration::from_millis(1500), "level {} took {:?} in {}", level, took, fen);
+            }
+        }
+        // a forced mate in one is never thrown away, even at the weakest level
+        skill::set_level(1);
+        for _ in 0..5 {
+            let (m, b, _) = timed("r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4", 300);
+            assert_eq!(cozy_chess::util::display_uci_move(&b, m.unwrap()).to_string(), "f3f7");
+        }
+        skill::set_level(skill::FULL);
+    }
+
+    #[test]
+    fn skill_level_never_changes_the_personality() {
+        let _lock = crate::test_lock();
+        personality::set(personality::DEFAULTS);
+        let before = personality::live();
+        for level in 1..=21 {
+            skill::set_level(level);
+            assert_eq!(personality::live(), before, "level {}", level);
+        }
+        skill::set_level(5);
+        let _ = timed("r1bq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 0 8", 200);
+        assert_eq!(personality::live(), before);
+        assert_eq!(personality::current(), personality::DEFAULTS);
+        skill::set_level(skill::FULL);
+        // and full strength has no limits at all
+        assert!(skill::params().is_none());
+    }
+
+    #[test]
+    fn personality_options_move_the_evaluation() {
+        let _lock = crate::test_lock();
+        use personality::{Settings, DEFAULTS};
+        eval::set_engine_color(Some(cozy_chess::Color::White));
+        let pers = |s: Settings, fen: &str| {
+            personality::set(s);
+            eval::personality(&board(fen))
+        };
+        // King Attack Priority: White's queen on h6 and pieces at the castled king
+        let attack = "r1bq1rk1/pppp1p2/2n2n1Q/2b1p3/2B1P3/2NP1N2/PPP2PPP/R4RK1 w - - 0 9";
+        let k = |v| pers(Settings { king_attack: v, ..DEFAULTS }, attack);
+        assert!(k(100) > k(60) && k(60) > k(0), "king attack {} {} {}", k(100), k(60), k(0));
+        // Material Preservation: the same attack a knight down
+        let down = "r1bq1rk1/pppp1p2/2n2n1Q/2b1p3/2B1P3/3P1N2/PPP2PPP/R4RK1 w - - 0 9";
+        let m = |v| pers(Settings { material_preservation: v, ..DEFAULTS }, down);
+        assert!(m(0) > m(50) && m(50) > m(100), "material preservation {} {} {}", m(0), m(50), m(100));
+        // Aggression: queens and pieces traded off cost more
+        let traded = "r4rk1/ppp2ppp/2n5/8/3P4/2PB1N2/P4PPP/R4RK1 w - - 0 14";
+        let a = |v| pers(Settings { aggression: v, ..DEFAULTS }, traded);
+        assert!(a(0) > a(60) && a(60) > a(100), "aggression {} {} {}", a(0), a(60), a(100));
+        // all neutral: no personality at all
+        let neutral = Settings { aggression: 0, sacrifice_appetite: 0, king_attack: 0, material_preservation: 50, speculative: 0 };
+        assert_eq!(pers(neutral, attack), 0);
+        personality::set(DEFAULTS);
+        eval::set_engine_color(None);
+    }
+
+    #[test]
+    fn sacrifice_options_set_the_search_parameters() {
+        let _lock = crate::test_lock();
+        use personality::{Settings, DEFAULTS};
+        personality::set(Settings { sacrifice_appetite: 0, speculative: 0, ..DEFAULTS });
+        let timid = search::SacParams::base();
+        personality::set(DEFAULTS);
+        let bold = search::SacParams::base();
+        assert_eq!(timid.bonus, 0);
+        assert!(bold.bonus > 300 && bold.floor < -310 && bold.units < 3 && bold.gambit > 0 && bold.tal_sacs);
+        assert!(timid.floor > bold.floor && timid.check_see < bold.check_see);
+        // the default appetite after the game's first sacrifice stays far above 4.5.0's 60
+        assert!(search::AFTER_SAC_BONUS.load(Ordering::Relaxed) >= 150);
+    }
 }
 
 #[cfg(test)]
@@ -470,6 +619,7 @@ mod nnue_tests {
     /// through captures, promotions, castling and en passant.
     #[test]
     fn incremental_matches_refresh() {
+        let _lock = crate::test_lock();
         let mut seed = 0x2545F4914F6CDD1Du64;
         for _game in 0..200 {
             let mut b = Board::default();

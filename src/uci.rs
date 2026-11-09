@@ -51,7 +51,7 @@ pub fn uci_loop() {
     let mut book_path = String::from("ph-gambitbook.bin");
     let mut book: Option<Book> = None; // loaded lazily so `uci` answers instantly
     let own_book = true; // curated gambits always; Polyglot book used if BookPath exists
-    let move_overhead: u64 = 50; // ms reserved per move for GUI / network lag
+    let mut move_overhead: u64 = 50; // ms reserved per move for GUI / network lag
     let mut history_hashes = vec![board.hash()];
     let mut prev_plies: usize = 0;
 
@@ -73,18 +73,23 @@ pub fn uci_loop() {
 
         match tokens[0] {
             "uci" => {
-                out!("id name AggroChess 4.5.0");
-                out!("id author Rinarto Gibson");
-                // Only a few knobs are exposed on purpose. Everything else (hash size,
-                // contempt, time safety margin) is fixed at tuned defaults.
-                out!(
-                    "option name Threads type spin default {} min 1 max 128",
-                    search::NUM_THREADS.load(Ordering::Relaxed)
-                );
-                out!("option name BookPath type string default ph-gambitbook.bin");
+                out!("id name AggroChess Ultimate Sacrificial Edition {}", env!("CARGO_PKG_VERSION"));
+                out!("id author Rinarto Gibson (AggroChess); Ultimate Sacrificial Edition modifications");
+                for line in option_lines() {
+                    out!("{}", line);
+                }
                 out!("uciok");
             }
             "isready" => {
+                // allocate the hash table now (after a Hash change), not on the clock of the
+                // first move; a running search already has its table
+                if search_thread.is_none() {
+                    let _ = search::get_global_tt(search::TT_SIZE_MB.load(Ordering::Relaxed));
+                    // the opening book too (it used to load on the first timed `go`, on the clock)
+                    if own_book && book.is_none() {
+                        book = Some(Book::new(&book_path));
+                    }
+                }
                 out!("readyok");
             }
             "setoption" => {
@@ -95,15 +100,65 @@ pub fn uci_loop() {
                     let name_end = value_pos.unwrap_or(tokens.len());
                     let name = tokens[np + 1..name_end].join(" ").to_lowercase();
                     let value = value_pos.map(|vp| tokens[vp + 1..].join(" ")).unwrap_or_default();
-                    // Only Threads and BookPath are user settings. Everything else (swindle
-                    // mode, the tuning knobs) is fixed; the knobs answer only in a
-                    // development run (AGGRO_DEV set), for testing.
+                    // The advertised options are user settings. Everything else (swindle mode,
+                    // the tuning knobs) is fixed; the knobs answer only in a development run
+                    // (AGGRO_DEV set), for testing.
                     let dev = std::env::var_os("AGGRO_DEV").is_some();
-                    let name = if dev || name == "threads" || name == "bookpath" { name } else { String::new() };
+                    let name = if dev || is_user_option(&name) { name } else { String::new() };
+                    let int = |v: &str| v.trim().parse::<i64>().ok();
                     match name.as_str() {
                         "threads" => {
-                            if let Ok(t) = value.parse::<usize>() {
-                                search::NUM_THREADS.store(t.clamp(1, 128), Ordering::Relaxed);
+                            if let Some(t) = int(&value) {
+                                search::NUM_THREADS.store(t.clamp(1, 128) as usize, Ordering::Relaxed);
+                            }
+                        }
+                        "hash" => {
+                            if let Some(mb) = int(&value) {
+                                search::TT_SIZE_MB.store(mb.clamp(1, 4096) as usize, Ordering::Relaxed);
+                            }
+                        }
+                        "clear hash" => {
+                            stop_and_join(&stop_flag, &mut search_thread);
+                            search::clear_global_tt();
+                        }
+                        "multipv" => {
+                            if let Some(v) = int(&value) {
+                                search::MULTI_PV.store(v.clamp(1, 64) as usize, Ordering::Relaxed);
+                            }
+                        }
+                        "move overhead" => {
+                            if let Some(v) = int(&value) {
+                                move_overhead = v.clamp(0, 5000) as u64;
+                            }
+                        }
+                        "skill level" | "skill_level" => {
+                            if let Some(v) = int(&value) {
+                                crate::skill::set_level(v.clamp(1, 21) as i32);
+                            }
+                        }
+                        "aggression" | "sacrifice appetite" | "king attack priority" | "material preservation"
+                        | "speculative sacrifices" => {
+                            if let Some(v) = int(&value) {
+                                let v = v.clamp(0, 100) as i32;
+                                let mut p = crate::personality::current();
+                                match name.as_str() {
+                                    "aggression" => p.aggression = v,
+                                    "sacrifice appetite" => p.sacrifice_appetite = v,
+                                    "king attack priority" => p.king_attack = v,
+                                    "material preservation" => p.material_preservation = v,
+                                    _ => p.speculative = v,
+                                }
+                                if p != crate::personality::current() {
+                                    crate::personality::set(p);
+                                    // hash-table scores and cached evaluations hold the old personality
+                                    search::clear_global_tt();
+                                }
+                            }
+                        }
+                        "x_skillseed" => {
+                            if let Some(v) = int(&value) {
+                                crate::skill::FIXED_SEED.store(v.max(0) as u64, Ordering::Relaxed);
+                                crate::skill::reseed();
                             }
                         }
                         "bookpath" => {
@@ -407,7 +462,8 @@ pub fn uci_loop() {
             "ucinewgame" => {
                 stop_and_join(&stop_flag, &mut search_thread);
                 search::LAST_SCORE.store(0, Ordering::Relaxed);
-                    search::LAST_OBJ.store(0, Ordering::Relaxed);
+                search::LAST_OBJ.store(0, Ordering::Relaxed);
+                crate::skill::new_game();
                 prev_plies = 0;
                 board = Board::default();
                 history_hashes = vec![board.hash()];
@@ -469,6 +525,11 @@ pub fn uci_loop() {
                 if movers.len() < prev_plies || movers.len() < 2 {
                     search::LAST_SCORE.store(0, Ordering::Relaxed);
                     search::LAST_OBJ.store(0, Ordering::Relaxed);
+                }
+                // ...and, for GUIs that never send ucinewgame, a fresh Skill Level allowance (only
+                // for games given as moves: a FEN-only GUI sends every position "fresh")
+                if moves_index.is_some() && movers.len() < prev_plies {
+                    crate::skill::new_game();
                 }
                 prev_plies = movers.len();
             }
@@ -540,8 +601,11 @@ pub fn uci_loop() {
                 }
                 *search::ROOT_FILTER.lock().unwrap() = searchmoves.clone();
 
-                // Opening book (only for normal timed games / plain "go")
-                if own_book && limits.depth.is_none() && limits.nodes.is_none() && !infinite && searchmoves.is_empty() {
+                // Opening book (only for normal timed games / plain "go"). A weakened engine
+                // (Skill Level) leaves its book after a level-dependent number of plies.
+                let game_ply = 2 * (board.fullmove_number().max(1) as u32 - 1) + (board.side_to_move() == Color::Black) as u32;
+                let book_ok = crate::skill::params().map_or(true, |w| w.book_plies == 0 || game_ply < w.book_plies);
+                if own_book && book_ok && limits.depth.is_none() && limits.nodes.is_none() && !infinite && searchmoves.is_empty() {
                     if book.is_none() {
                         book = Some(Book::new(&book_path));
                     }
@@ -577,12 +641,19 @@ pub fn uci_loop() {
                 let search_board = board.clone();
                 let stop_clone = Arc::clone(&stop_flag);
                 let hist = history_hashes.clone();
-                stop_flag.store(false, Ordering::Relaxed);
+                stop_flag.store(false, Ordering::SeqCst);
+                search::EXTERNAL_STOP.store(false, Ordering::SeqCst);
+                let wait_for_stop = infinite;
                 search_thread = Some(
                     std::thread::Builder::new()
                         .stack_size(SEARCH_STACK)
                         .spawn(move || {
                             let (best, _) = search::search_position(&search_board, &hist, limits, stop_clone, true);
+                            // `go infinite`: the GUI decides when the search is over, even when the
+                            // search itself has finished (a mate found, a Skill Level budget spent)
+                            while wait_for_stop && !search::EXTERNAL_STOP.load(Ordering::SeqCst) {
+                                std::thread::sleep(Duration::from_millis(2));
+                            }
                             match best {
                                 Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&search_board, mv)),
                                 None => out!("bestmove 0000"),
@@ -669,8 +740,49 @@ pub fn count_sacrifices_ex(mat_hist: &[i32], movers: &[cozy_chess::Color]) -> ([
 
 fn stop_and_join(stop: &Arc<AtomicBool>, handle: &mut Option<std::thread::JoinHandle<()>>) {
     if let Some(h) = handle.take() {
-        stop.store(true, Ordering::Relaxed);
+        // the GUI's stop first (seen by every search and by `go infinite`), then the flag
+        search::EXTERNAL_STOP.store(true, Ordering::SeqCst);
+        stop.store(true, Ordering::SeqCst);
         let _ = h.join();
     }
-    stop.store(false, Ordering::Relaxed);
+    stop.store(false, Ordering::SeqCst);
+}
+
+/// The options advertised to the GUI.
+pub fn option_lines() -> Vec<String> {
+    let p = crate::personality::DEFAULTS;
+    vec![
+        format!("option name Threads type spin default {} min 1 max 128", search::NUM_THREADS.load(Ordering::Relaxed)),
+        "option name Hash type spin default 128 min 1 max 4096".to_string(),
+        "option name Clear Hash type button".to_string(),
+        "option name MultiPV type spin default 1 min 1 max 64".to_string(),
+        "option name Move Overhead type spin default 50 min 0 max 5000".to_string(),
+        format!("option name Skill Level type spin default {} min {} max {}", crate::skill::FULL, crate::skill::MIN, crate::skill::FULL),
+        format!("option name Aggression type spin default {} min 0 max 100", p.aggression),
+        format!("option name Sacrifice Appetite type spin default {} min 0 max 100", p.sacrifice_appetite),
+        format!("option name King Attack Priority type spin default {} min 0 max 100", p.king_attack),
+        format!("option name Material Preservation type spin default {} min 0 max 100", p.material_preservation),
+        format!("option name Speculative Sacrifices type spin default {} min 0 max 100", p.speculative),
+        "option name BookPath type string default ph-gambitbook.bin".to_string(),
+    ]
+}
+
+/// Whether `name` (lowercase) is an advertised option (or an accepted alias).
+fn is_user_option(name: &str) -> bool {
+    matches!(
+        name,
+        "threads"
+            | "hash"
+            | "clear hash"
+            | "multipv"
+            | "move overhead"
+            | "skill level"
+            | "skill_level"
+            | "aggression"
+            | "sacrifice appetite"
+            | "king attack priority"
+            | "material preservation"
+            | "speculative sacrifices"
+            | "bookpath"
+    )
 }

@@ -1,0 +1,15 @@
+[package]
+name = "aggro_arena"
+version = "0.1.0"
+edition = "2021"
+description = "Self-contained UCI match runner / opening converter / UCI conformance tester for AggroChess"
+
+[[bin]]
+name = "aggro_arena"
+path = "src/main.rs"
+
+[dependencies]
+cozy-chess = "0.3"
+
+[profile.release]
+opt-level = 3

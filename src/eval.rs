@@ -6,10 +6,15 @@
 //!    mobility, threats, passed pawns and a Stockfish-style quadratic
 //!    king-danger model. This is what lets the engine tell a real attack from
 //!    a fake one.
-//! 2. A *personality* layer (the "Tal" part): the danger the engine creates
-//!    against the opponent's king is multiplied by `AGGRESSION` (default 130%),
-//!    the engine prefers keeping pieces (and queens) on the board, and draws
-//!    are scored as losses by `CONTEMPT` in the search.
+//! 2. A *personality* layer (the "Tal" part), only for the engine's own side:
+//!    the danger the engine creates against the opponent's king is multiplied by
+//!    `AGGRESSION` (King Attack Priority), pieces aimed at the king, heavy pieces
+//!    on open files near it and the king clamp are rewarded (`KING_K`), the
+//!    engine prefers keeping pieces and queens on the board (`TRADE_K`), values
+//!    active pieces and threats (`ACTIVITY_K`, Aggression), and discounts a
+//!    material deficit while it attacks (`MATERIAL_PRES`, Material Preservation).
+//!    Draws are scored as losses by `CONTEMPT` in the search. All of these are
+//!    set from the UCI personality options in `personality.rs`.
 //!
 //! Because king danger grows quadratically with the number of attackers, safe
 //! checks and weak squares around the king, a sacrifice that rips the king
@@ -20,9 +25,24 @@
 use cozy_chess::{BitBoard, Board, Color, Piece, Square};
 use std::sync::atomic::{AtomicI32, AtomicU8, Ordering};
 
-/// Percentage applied to the king danger *the engine* inflicts on its opponent.
-/// 100 = objective, 180 = default ("Tal mode", tuned for playing humans).
-pub static AGGRESSION: AtomicI32 = AtomicI32::new(220);
+/// Percentage applied to the king danger *the engine* inflicts on its opponent (King Attack
+/// Priority). 100 = objective, 220 = AggroChess 4.5.0, 250 = Ultimate default.
+pub static AGGRESSION: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.king_danger_pct);
+/// The extra king danger above the objective amount is capped (centipawns), so a high King
+/// Attack Priority cannot blow the evaluation up into the thousands (4.5.0 never reaches it).
+pub const KING_EXCESS_CAP: i32 = 2200;
+/// Weight of the other king-attack terms (pieces aimed at the king zone, heavy pieces on open
+/// files next to the king, the king clamp, pawn storms). 120 = AggroChess 4.5.0.
+pub static KING_K: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.king_k);
+/// Weight of trade aversion (keep pieces and queens on). 120 = AggroChess 4.5.0.
+pub static TRADE_K: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.trade_k);
+/// Weight of the activity / initiative terms (active protected pieces in the enemy half,
+/// enemy pieces under attack). 0 = AggroChess 4.5.0.
+pub static ACTIVITY_K: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.activity_k);
+/// Material Preservation, 0..100. 50 = neutral (AggroChess 4.5.0). Below 50 a material deficit
+/// is partly discounted while the engine's pieces bear on the enemy king; above 50 a deficit
+/// costs extra.
+pub static MATERIAL_PRES: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.material_preservation);
 /// King clamp bonus (a pawn of ours on the 6th rank against the enemy king), personality
 /// layer, at the default aggression. 0 = off.
 pub static KING_CLAMP: AtomicI32 = AtomicI32::new(45);
@@ -418,6 +438,8 @@ struct Ctx {
     ka_count: [i32; 2],
     ka_weight: [i32; 2],
     ka_adj: [i32; 2],
+    /// attack units on the enemy king zone: knights, bishops, rooks 1, queens 2 (pieces only)
+    ka_units: [i32; 2],
     mg: [i32; 2],
     eg: [i32; 2],
 }
@@ -429,10 +451,16 @@ pub fn evaluate(board: &Board) -> i32 {
     hce + pers + noise(board)
 }
 
-/// Whether the personality layer is active (an engine side is set and aggression > 100).
+/// Whether the personality layer is active: an engine side is set and at least one personality
+/// weight is away from neutral.
 #[inline]
 pub fn personality_active() -> bool {
-    engine_color().is_some() && AGGRESSION.load(Ordering::Relaxed) > 100
+    engine_color().is_some()
+        && (AGGRESSION.load(Ordering::Relaxed) > 100
+            || TRADE_K.load(Ordering::Relaxed) > 0
+            || KING_K.load(Ordering::Relaxed) > 0
+            || ACTIVITY_K.load(Ordering::Relaxed) > 0
+            || MATERIAL_PRES.load(Ordering::Relaxed) != 50)
 }
 
 /// Just the personality layer, from the side to move's point of view: the extra king danger
@@ -483,6 +511,7 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
         ka_count: [0; 2],
         ka_weight: [0; 2],
         ka_adj: [0; 2],
+        ka_units: [0; 2],
         mg: [0; 2],
         eg: [0; 2],
     };
@@ -594,6 +623,7 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
                     x.ka_count[c] += 1;
                     x.ka_weight[c] += KING_ATTACK_WEIGHT[pi];
                     x.ka_adj[c] += (a & x.att[them][5]).count_ones() as i32;
+                    x.ka_units[c] += if p == Piece::Queen { 2 } else { 1 };
                 }
 
                 let b = 1u64 << s;
@@ -711,17 +741,22 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
         }
         let (mg_pen, eg_pen) = king_danger(&x, color);
         if Some(!color) == engine {
-            // The engine is the attacker here: value its attack more.
-            pmg[idx(color)] -= mg_pen * aggression / 100 - mg_pen;
+            // The engine is the attacker here: value its attack more (King Attack Priority),
+            // up to a cap so the evaluation stays within what the search margins expect.
+            pmg[idx(color)] -= (mg_pen * aggression / 100 - mg_pen).min(KING_EXCESS_CAP);
         }
         x.mg[idx(color)] -= mg_pen;
         x.eg[idx(color)] -= eg_pen;
     }
 
     // --- personality extras -------------------------------------------------
-    if let Some(e) = engine.filter(|_| aggression > 100) {
+    if let Some(e) = engine {
         let ec = idx(e);
-        let k = aggression - 100; // 80 at the default setting
+        let oc = 1 - ec;
+        let tk = TRADE_K.load(Ordering::Relaxed); // Aggression: trade aversion (120 in 4.5.0)
+        let k = KING_K.load(Ordering::Relaxed); // King Attack Priority (120 in 4.5.0)
+        let ak = ACTIVITY_K.load(Ordering::Relaxed); // Aggression: activity (0 in 4.5.0)
+        let mp = MATERIAL_PRES.load(Ordering::Relaxed); // 50 = neutral (4.5.0)
         // Prefer complex positions: every trade costs (zero at the start). Against a human,
         // pieces on the board mean chances, so this is strong, and stronger still when the
         // engine is behind in material: a losing swindler wants as many pieces on as possible,
@@ -732,68 +767,115 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
                 + 5 * x.pcs[c][3].count_ones() as i32
                 + 9 * x.pcs[c][4].count_ones() as i32
         };
-        let behind = mat(ec) < mat(1 - ec) - 1;
-        // Only *matched* losses count as trades: a bishop for a bishop is a trade, a bishop for
-        // nothing is a sacrifice and costs nothing here (the sacrifice has its own risk already).
-        let pieces = |c: usize| (x.pcs[c][1] | x.pcs[c][2] | x.pcs[c][3] | x.pcs[c][4]).count_ones() as i32;
-        let lost = |c: usize| (7 - pieces(c)).max(0);
-        let gone = -2 * lost(0).min(lost(1)); // two pieces leave the board per trade
-        if behind {
-            pmg[ec] += gone * 16 * k / 50;
-            peg[ec] += gone * 6 * k / 50;
-        } else {
-            pmg[ec] += gone * 10 * k / 50;
-        }
-        if x.pcs[0][4] == 0 && x.pcs[1][4] == 0 {
-            // queens traded off: much less fun (a queen *sacrifice* is not a trade)
-            pmg[ec] -= if behind { 90 } else { 60 } * k / 50;
-        }
-        // Reward simply *pointing* pieces at the enemy king, even before the attack is
-        // strong enough to register as king danger: it pulls pieces towards the king.
-        let oc = 1 - ec;
-        let zone_hits = (x.zone[oc] & x.att_all[ec]).count_ones() as i32;
-        pmg[ec] += (x.ka_count[ec] * 9 + zone_hits * 4) * k / 80;
-        // Rooks and queens on open or half-open files next to the enemy king.
-        let kf = (x.ksq[oc] % 8) as i32;
-        for f in (kf - 1).max(0)..=(kf + 1).min(7) {
-            let file_bb = FILE_A << f;
-            if x.pcs[ec][0] & file_bb == 0 {
-                let heavy = ((x.pcs[ec][3] | x.pcs[ec][4]) & file_bb).count_ones() as i32;
-                pmg[ec] += heavy * 18 * k / 80;
+        let behind = mat(ec) < mat(oc) - 1;
+        if tk > 0 {
+            // Only *matched* losses count as trades: a bishop for a bishop is a trade, a bishop
+            // for nothing is a sacrifice and costs nothing here (it has its own risk already).
+            let pieces = |c: usize| (x.pcs[c][1] | x.pcs[c][2] | x.pcs[c][3] | x.pcs[c][4]).count_ones() as i32;
+            let lost = |c: usize| (7 - pieces(c)).max(0);
+            let gone = -2 * lost(0).min(lost(1)); // two pieces leave the board per trade
+            if behind {
+                pmg[ec] += gone * 16 * tk / 50;
+                peg[ec] += gone * 6 * tk / 50;
+            } else {
+                pmg[ec] += gone * 10 * tk / 50;
+            }
+            if x.pcs[0][4] == 0 && x.pcs[1][4] == 0 {
+                // queens traded off: much less fun (a queen *sacrifice* is not a trade)
+                pmg[ec] -= if behind { 90 } else { 60 } * tk / 50;
             }
         }
-        // The king clamp (AlphaZero's h-pawn): a pawn of ours on the 6th rank against the
-        // castled king takes squares from it for good. Nothing happens at once, so the search
-        // can't see what it is worth, but every later attack (a check on the back rank, a queen
-        // landing on g7) comes with mate threats the defender has to keep parrying. A pawn on
-        // the 5th rank with its way forward free is the march towards it.
-        let clamp = KING_CLAMP.load(Ordering::Relaxed);
-        if clamp > 0 && (x.pcs[ec][3] | x.pcs[ec][4]) != 0 {
-            let ok = x.ksq[oc];
-            let e_col = e;
-            let o_col = !e;
-            if rel_rank(o_col, ok) <= 1 {
-                let ring = x.att[oc][5] | (1u64 << ok);
-                let mut it = x.pcs[ec][0];
-                while it != 0 {
-                    let s = it.trailing_zeros();
-                    it &= it - 1;
-                    let fd = ((s % 8) as i32 - (ok % 8) as i32).abs();
-                    if fd > 2 {
-                        continue;
+        if k > 0 {
+            // Reward simply *pointing* pieces at the enemy king, even before the attack is
+            // strong enough to register as king danger: it pulls pieces towards the king.
+            let zone_hits = (x.zone[oc] & x.att_all[ec]).count_ones() as i32;
+            pmg[ec] += (x.ka_count[ec] * 9 + zone_hits * 4) * k / 80;
+            // Rooks and queens on open or half-open files next to the enemy king.
+            let kf = (x.ksq[oc] % 8) as i32;
+            for f in (kf - 1).max(0)..=(kf + 1).min(7) {
+                let file_bb = FILE_A << f;
+                if x.pcs[ec][0] & file_bb == 0 {
+                    let heavy = ((x.pcs[ec][3] | x.pcs[ec][4]) & file_bb).count_ones() as i32;
+                    pmg[ec] += heavy * 18 * k / 80;
+                }
+            }
+            // The king clamp (AlphaZero's h-pawn): a pawn of ours on the 6th rank against the
+            // castled king takes squares from it for good. Nothing happens at once, so the
+            // search can't see what it is worth, but every later attack (a check on the back
+            // rank, a queen landing on g7) comes with mate threats the defender has to keep
+            // parrying. A pawn on the 5th rank with its way forward free is the march towards it.
+            // Above the 4.5.0 weight, pawns storming towards the castled king (4th and 5th rank,
+            // on the king's files) earn a little too: they open lines for the pieces behind.
+            let clamp = KING_CLAMP.load(Ordering::Relaxed);
+            let storm_k = (k - 120).max(0);
+            if (clamp > 0 || storm_k > 0) && (x.pcs[ec][3] | x.pcs[ec][4]) != 0 {
+                let ok = x.ksq[oc];
+                let e_col = e;
+                let o_col = !e;
+                if rel_rank(o_col, ok) <= 1 {
+                    let ring = x.att[oc][5] | (1u64 << ok);
+                    let mut it = x.pcs[ec][0];
+                    while it != 0 {
+                        let s = it.trailing_zeros();
+                        it &= it - 1;
+                        let fd = ((s % 8) as i32 - (ok % 8) as i32).abs();
+                        if fd > 2 {
+                            continue;
+                        }
+                        let b = 1u64 << s;
+                        let rr = rel_rank(e_col, s);
+                        if storm_k > 0 && fd <= 1 && (rr == 3 || rr == 4) {
+                            pmg[ec] += 8 * storm_k / 60;
+                        }
+                        // safe: no enemy pawn takes it, or one of ours guards it
+                        let safe = x.att[oc][0] & b == 0 || x.att[ec][0] & b != 0;
+                        if !safe || clamp <= 0 {
+                            continue;
+                        }
+                        if rr == 5 && pawn_attacks(b, e_col) & ring != 0 {
+                            pmg[ec] += clamp * k / 80;
+                        } else if rr == 4 && forward(b, e_col) & x.occ == 0 {
+                            pmg[ec] += clamp * k / 320;
+                        }
                     }
-                    let b = 1u64 << s;
-                    let rr = rel_rank(e_col, s);
-                    // safe: no enemy pawn takes it, or one of ours guards it
-                    let safe = x.att[oc][0] & b == 0 || x.att[ec][0] & b != 0;
-                    if !safe {
-                        continue;
-                    }
-                    if rr == 5 && pawn_attacks(b, e_col) & ring != 0 {
-                        pmg[ec] += clamp * k / 80;
-                    } else if rr == 4 && forward(b, e_col) & x.occ == 0 {
-                        pmg[ec] += clamp * k / 320;
-                    }
+                }
+            }
+        }
+        if ak > 0 {
+            // Activity and initiative (Aggression above the 4.5.0 setting): pieces planted in
+            // the enemy half with a guard behind them, and enemy pieces under attack. Both are
+            // what an attacker's position is made of; neither costs the engine material.
+            let enemy_half = if e == Color::White { 0xFFFF_FFFF_0000_0000u64 } else { 0x0000_0000_FFFF_FFFFu64 };
+            let our_pieces = x.pcs[ec][1] | x.pcs[ec][2] | x.pcs[ec][3] | x.pcs[ec][4];
+            let outposts = (our_pieces & enemy_half & x.att_all[ec]).count_ones() as i32;
+            let their_pieces = x.pcs[oc][1] | x.pcs[oc][2] | x.pcs[oc][3] | x.pcs[oc][4];
+            let threats = (their_pieces & x.att_all[ec]).count_ones() as i32;
+            pmg[ec] += (outposts * 8 + threats * 6) * ak / 60;
+            peg[ec] += (outposts * 3 + threats * 3) * ak / 60;
+        }
+        if mp != 50 {
+            // Material Preservation: how much a material deficit hurts beyond what the network
+            // already says. Below 50, while our pieces bear on the enemy king, part of the
+            // deficit is forgiven (an attacker who gave material keeps attacking instead of
+            // scrambling to win it back); above 50 a deficit costs extra.
+            let cp = |c: usize| {
+                100 * x.pcs[c][0].count_ones() as i32
+                    + 320 * x.pcs[c][1].count_ones() as i32
+                    + 330 * x.pcs[c][2].count_ones() as i32
+                    + 500 * x.pcs[c][3].count_ones() as i32
+                    + 900 * x.pcs[c][4].count_ones() as i32
+            };
+            let deficit = (cp(oc) - cp(ec)).clamp(0, 1000);
+            if deficit > 0 {
+                if mp < 50 {
+                    let units = x.ka_units[ec].min(5);
+                    let refund = deficit * (50 - mp) * units * 30 / (50 * 5 * 100);
+                    pmg[ec] += refund;
+                    peg[ec] += refund / 2;
+                } else {
+                    let pen = deficit * (mp - 50) * 25 / (50 * 100);
+                    pmg[ec] -= pen;
+                    peg[ec] -= pen;
                 }
             }
         }
@@ -983,6 +1065,7 @@ mod tests {
     /// full evaluation.
     #[test]
     fn lean_personality_matches_full() {
+        let _lock = crate::test_lock();
         let mut seed = 0x9E3779B97F4A7C15u64;
         for side in [Color::White, Color::Black] {
             set_engine_color(Some(side));

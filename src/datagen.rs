@@ -119,7 +119,9 @@ pub fn run(args: &[String]) {
     if std::env::var("AGGRO_HCE").is_ok() {
         search::USE_NNUE.store(false, Ordering::Relaxed);
     }
-    // neutral personality: objective labels
+    // neutral personality: objective labels (the search of AggroChess 4.5.0 with every
+    // personality weight at neutral, whatever the personality options say)
+    crate::personality::set_datagen_neutral();
     eval::AGGRESSION.store(100, Ordering::Relaxed);
     eval::set_engine_color(None);
     search::CONTEMPT.store(0, Ordering::Relaxed);

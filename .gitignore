@@ -1,2 +1,6 @@
 /target
 /trainer/target
+/testing/arena/target
+/testing/runs
+__pycache__/
+/dist
