@@ -672,7 +672,15 @@ pub fn uci_loop() {
                         let mtg = movestogo.unwrap_or(30).clamp(1, 50);
                         let mut soft = avail / mtg + inc * 3 / 4;
                         soft = soft.min(avail / 4);
+                        // the last move before the time control gets a fresh clock right
+                        // after it: plan most of this one, keep only the usual emergency
+                        // reserve (a twelfth). `movestogo 1` must not think with a quarter
+                        // of the clock while the whole game rides on this move.
+                        if mtg == 1 {
+                            soft = (avail + inc * 3 / 4) * 11 / 12;
+                        }
                         let hard = (soft * 4).min(avail / 2).max(soft);
+                        let hard = if mtg == 1 { (avail + inc * 3 / 4).min(hard * 2) } else { hard };
                         limits.soft = Some(Duration::from_millis(soft.max(1)));
                         limits.hard = Some(Duration::from_millis(hard.max(1)));
                     }

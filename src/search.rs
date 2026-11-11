@@ -2728,10 +2728,24 @@ fn search_position_inner(
             s.check_mask = 63; // small node budgets are kept to within a few dozen nodes
         }
     }
+    // The same fine-grained node counting for the GUI's own `go nodes` at full strength:
+    // a 100-node limit must overshoot by a few dozen nodes, not by a thousand (the search
+    // only checks the budget every check_mask+1 nodes). No effect without a node limit.
+    if let Some(n) = limits.nodes {
+        if n < 100_000 && s.check_mask > 15 {
+            s.check_mask = match n {
+                0..=15 => 3,
+                16..=63 => 15,
+                _ => 63,
+            };
+        }
+    }
 
     // ---- Tal's forcing lines (deep mode, in trouble) ----
+    // A forced reply (exactly one legal move) is not thought about at all: no priming budget
+    // is spent on it - the engine answers at once, like every strong engine.
     let mut quick_score: Option<i32> = None;
-    if deep_mode && PRIME.load(Ordering::Relaxed) && full && ROOT_FILTER.lock().unwrap().is_empty() {
+    if deep_mode && PRIME.load(Ordering::Relaxed) && full && root_moves.len() > 1 && ROOT_FILTER.lock().unwrap().is_empty() {
         let base = full_hard;
         if let Some(h) = base {
             quick_score = prime_forcing_lines(board, &s.hashes, &tt, sac, h * PRIME_PCT.load(Ordering::Relaxed).clamp(0, 60) as u32 / 100, print_info);
@@ -2834,6 +2848,7 @@ fn search_position_inner(
     // smallest budget plays a move it has actually looked at
     let node_limit = s.node_limit.take();
     let mut clean_depth1 = false;
+    let mut iter_start = std::time::Duration::ZERO;
 
     TAL_MODE.store(false, Ordering::Relaxed);
     for depth in 1..=max_depth {
@@ -2962,6 +2977,9 @@ fn search_position_inner(
             }
         }
         prev_best = best_move;
+        // how long this finished iteration took (for the do-not-start-a-doomed-iteration rule)
+        let iter_time = elapsed.saturating_sub(iter_start);
+        iter_start = elapsed;
         if let Some(soft) = limits.soft {
             let mut factor = match stability {
                 0 => 1.6,
@@ -2978,6 +2996,19 @@ fn search_position_inner(
             }
             if elapsed.as_secs_f64() > soft.as_secs_f64() * factor {
                 break;
+            }
+            // Do not start an iteration that cannot finish: the next depth costs about
+            // 1.4-2.0x the last iteration (branching factor); if the projection already
+            // runs past the hard limit, the iteration would be aborted half-way and the
+            // clock spent on a partial result. Waiting is better than burning it.
+            if let Some(hard) = limits.hard {
+                if depth >= 4 {
+                    // EBNF through 3 plies is erratic (TT warm-up); only trust the trend later
+                    let projected = elapsed + iter_time.mul_f64(1.5);
+                    if projected > hard.mul_f64(0.95) {
+                        break;
+                    }
+                }
             }
         }
         prev_score = best_score;
