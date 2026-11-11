@@ -57,6 +57,7 @@ AggroChess is a standard UCI engine: one executable, with the neural network and
 | `Human Base Minutes` | spin | **0** | 0–480 | The time frame you are playing (1, 3, 5, 15 …). 0 = auto: the pace is learned from the clock the GUI reports instead. |
 | `Human Increment Seconds` | spin | **0** | 0–60 | The increment of that time frame. |
 | `Human Style` | spin | **0** | 0–100 | Among moves the search treats as nearly equal, prefer the natural human choice (development, checks, captures, centre, sacrifices). 0 = off. |
+| `Relay Hint` | spin | **0** | 0–10000 ms | Hand-relay setups: show the chosen move this many ms before the think ends (`info string relay hint`). 0 = off. |
 | `BookPath` | string | ph-gambitbook.bin | | Optional Polyglot book used after the built-in gambit lines. |
 
 `Skill_Level` (Patricia's spelling) is accepted as an alias of `Skill Level`. Changing a personality option clears the hash table (stored scores contain the old personality).
@@ -114,11 +115,19 @@ In a 5+3 game with `Human Think Time` 100 the replies land in roughly 1–20 s; 
 same shape scales down to ~0.3–4 s.
 
 Fixed-time games (`go movetime`, the "time limit per move" mode some GUIs and bots use)
-act too: the engine has no clock to read there, so the pace is taken from the movetime
-itself (movetime × 40 is the "game"), and a pause is never longer than **5× the movetime**
-so a fixed-time caller always gets its reply within fixed-time patience. With a 300 ms
-movetime the pauses are 0.1–1.5 s; with a 1 s movetime up to ~4.5 s. Set the frame options
-anyway: they matter the moment the same engine plays a real clock game.
+act too. The engine has no clock to read there, so set `Human Base Minutes` to the game you
+are playing: a 5+0 platform game driven through a 300 ms-per-move search thinks in the
+5-minute rhythm (measured: 13–15 s on sharp positions, ~1–4 s on quiet ones). Without a
+frame the movetime itself implies one (movetime × 40), and the pause is additionally capped
+at **5× the movetime** so a plain fixed-time caller always gets a reply within fixed-time
+patience: a 300 ms movetime then pauses 0.1–1.5 s.
+
+**`Relay Hint` (ms, 0 = off)** — for hand-relay setups: you operate the engine by hand,
+playing its moves on another board or site (engine-vs-bot testing, exhibition relays). The
+chosen move is printed on an `info string relay hint: <move>` line this many milliseconds
+*before* the think ends, so you can read and relay it while the pause finishes: with 2000
+the hint lands 2.00 s before `bestmove` (measured). It changes nothing except when the
+operator sees the move; the move itself and the `bestmove` line are untouched.
 
 **It cannot lose on time, structurally:**
 

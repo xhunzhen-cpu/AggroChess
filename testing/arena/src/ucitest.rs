@@ -30,6 +30,15 @@ fn ms(d: Duration) -> u128 {
     d.as_millis()
 }
 
+/// The Human Think Time act can hold a reply back well past a fixed `go movetime`; when the
+/// user turns it on, the fixed-time checks wait for the act (the match runner already
+/// allows 60 s per fixed-time move), and overrun warnings are suppressed instead.
+fn human_think_on(user_opts: &[(String, String)]) -> bool {
+    user_opts
+        .iter()
+        .any(|(k, v)| k.eq_ignore_ascii_case("Human Think Time") && v != "0" && !v.eq_ignore_ascii_case("false") && !v.is_empty())
+}
+
 fn board_of(fen: Option<&str>, moves: &[&str]) -> Result<Board, String> {
     let mut b = match fen {
         Some(f) => Board::from_fen(f, false).map_err(|e| format!("bad test FEN '{}': {:?}", f, e))?,
@@ -484,11 +493,16 @@ impl Tester {
             ("side to move in check", "rnbqkbnr/ppp2ppp/8/1B1pp3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 3", &[]),
             ("black to move, middlegame", MIDGAME_B, &[]),
         ];
+        let think = human_think_on(&self.user_opts);
         for (name, fen, moves) in fens {
             let label = format!("fen + go movetime 200: {}", name);
-            if let Some((el, _)) = self.search_check(&label, Some(fen), moves, "go movetime 200", Duration::from_millis(5000)) {
-                if el > Duration::from_millis(200 + 300) {
+            let tol = if think { Duration::from_secs(60) } else { Duration::from_millis(5000) };
+            if let Some((el, _)) = self.search_check(&label, Some(fen), moves, "go movetime 200", tol) {
+                if !think && el > Duration::from_millis(200 + 300) {
                     self.warn(&label, &format!("movetime 200 overrun: {} ms", ms(el)));
+                }
+                if think {
+                    self.warn(&label, "human think time is on: reply includes the deliberate pause");
                 }
             }
         }

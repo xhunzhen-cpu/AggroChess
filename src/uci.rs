@@ -156,6 +156,11 @@ pub fn uci_loop() {
                                 crate::human::STYLE.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
                             }
                         }
+                        "relay hint" => {
+                            if let Some(v) = int(&value) {
+                                crate::human::RELAY_HINT.store(v.clamp(0, 10_000) as i32, Ordering::Relaxed);
+                            }
+                        }
                         "skill level" | "skill_level" => {
                             if let Some(v) = int(&value) {
                                 crate::skill::set_level(v.clamp(1, 21) as i32);
@@ -675,13 +680,12 @@ pub fn uci_loop() {
                 // in for it and the pace acts normally on top of the fixed search time.
                 let movetime_frame = movetime.map(|mt| {
                     // A fixed movetime game has no visible clock, so the pace needs a frame.
-                    // The game's real speed is the movetime itself: a 300 ms-per-move game
-                    // is a fast game and the pauses belong to that rhythm, whatever frame
-                    // the user plays clock games in (a slow movetime, 1-2 s, implies a
-                    // slower rhythm). The pause is additionally capped at 5x the movetime
-                    // below, so a fixed-time game always answers within a fixed-time
-                    // patience (conformance harnesses and fixed-time GUIs expect that).
-                    mt.saturating_mul(40)
+                    // The frame the operator declared (Human Base Minutes) is the game they
+                    // are actually relaying into, so that is the clock the pauses pace
+                    // against - the engine's small search budget is not the game's speed.
+                    // Without a declared frame the movetime itself implies one (40 moves).
+                    let mins = crate::human::BASE_MINUTES.load(Ordering::Relaxed).max(0);
+                    if mins > 0 { 60_000 * mins as u64 } else { mt.saturating_mul(40) }
                 });
                 let human = crate::human::Limits {
                     ourtime: if infinite {
@@ -727,11 +731,23 @@ pub fn uci_loop() {
                                     if std::env::var_os("AGGRO_HUMANDBG").is_some() {
                                         out!("info string human think: waiting {} ms (complexity {}, search {} ms)", wait, comp, think_ms);
                                     }
+                                    // Relay Hint: for hand-relay setups, the move is shown to
+                                    // the operator this many ms before the think ends (`0` =
+                                    // never shown early). Useful only when a human relays the
+                                    // engine's moves by hand; the bestmove itself is unchanged.
+                                    let hint = crate::human::RELAY_HINT.load(Ordering::Relaxed).clamp(0, 10_000) as u64;
+                                    let mut hint_done = hint == 0;
                                     // interruptible: a `stop` that arrives during the act ends it
                                     // at once (stop_and_join sets EXTERNAL_STOP first)
                                     let until = std::time::Instant::now() + Duration::from_millis(wait);
                                     while std::time::Instant::now() < until && !search::EXTERNAL_STOP.load(Ordering::SeqCst) {
                                         std::thread::sleep(Duration::from_millis(2));
+                                        if !hint_done && until.duration_since(std::time::Instant::now()).as_millis() <= u128::from(hint) {
+                                            if let Some(mv) = best {
+                                                out!("info string relay hint: {}", cozy_chess::util::display_uci_move(&search_board, mv));
+                                            }
+                                            hint_done = true;
+                                        }
                                     }
                                 }
                             }
@@ -849,6 +865,7 @@ pub fn option_lines() -> Vec<String> {
         "option name Human Base Minutes type spin default 0 min 0 max 480".to_string(),
         "option name Human Increment Seconds type spin default 0 min 0 max 60".to_string(),
         "option name Human Style type spin default 0 min 0 max 100".to_string(),
+        "option name Relay Hint type spin default 0 min 0 max 10000".to_string(),
         "option name BookPath type string default ph-gambitbook.bin".to_string(),
     ]
 }
@@ -874,6 +891,7 @@ fn is_user_option(name: &str) -> bool {
             | "human base minutes"
             | "human increment seconds"
             | "human style"
+            | "relay hint"
             | "bookpath"
     )
 }

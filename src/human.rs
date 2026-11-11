@@ -31,6 +31,11 @@ pub static INCREMENT_SECONDS: AtomicI32 = AtomicI32::new(0);
 /// `Human Style`, 0..=100: how strongly near-equal moves are tilted towards the natural
 /// human choice. 0 (the default) is off: the move choice is exactly as before.
 pub static STYLE: AtomicI32 = AtomicI32::new(0);
+/// `Relay Hint` (ms, 0 = off): for hand-relay setups (operating the engine by hand against
+/// other bots), the chosen move is printed `info string relay hint: <move>` this many
+/// milliseconds *before* the think ends, so the operator's manual relay - reading the move,
+/// playing it on the other board - lands at the end of the think.
+pub static RELAY_HINT: AtomicI32 = AtomicI32::new(0);
 
 /// What the timing needs to know about one `go`.
 #[derive(Clone, Copy, Default)]
@@ -114,9 +119,14 @@ pub fn delay_ms(board: &Board, mv: Option<Move>, ctx: &Limits, think_ms: u128, c
     }
     // never more than 1/12 of the remaining clock, whatever the act says below
     let mut cap = ourtime / 12;
-    // a fixed movetime game answers within fixed-time patience: at most 5x the movetime
+    // a fixed movetime game with no declared frame is a fast game: the reply stays within
+    // fixed-time patience (at most 5x the movetime). With a frame declared (Human Base
+    // Minutes) the pauses pace like the clock game the operator is actually playing -
+    // a hand-relay game's speed is the platform's clock, not the engine's search budget.
     if let Some(mt) = ctx.movetime {
-        cap = cap.min(mt.saturating_mul(5));
+        if minutes == 0 {
+            cap = cap.min(mt.saturating_mul(5));
+        }
     }
     // ---- the scale of one move in this time frame ----
     // The base breath of a move: a normal think is a fixed slice (~5% of the frame), and
@@ -323,27 +333,30 @@ mod tests {
     }
 
     #[test]
-    fn movetime_games_pause_within_fixed_time_patience() {
+    fn movetime_games_pause_within_the_declared_frame() {
         let _lock = crate::test_lock();
         THINK.store(100, Ordering::Relaxed);
-        BASE_MINUTES.store(5, Ordering::Relaxed); // a clock-game frame must not leak into this
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        // the frame implied by movetime 300 is 300*40 ms; the hardest think is 1/12 of it,
-        // and never more than 5x the movetime -> at most 1500 ms
+        // a declared frame (the game the operator is actually playing) paces the pauses
+        // like a clock game: the full human rhythm, capped at 1/12 of the frame
+        BASE_MINUTES.store(5, Ordering::Relaxed);
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: Some(300) };
+        let mut biggest = 0;
+        for _ in 0..50 {
+            let d = delay_ms(&b, Some(m), &ctx, 1, 100);
+            assert!(d <= 300_000 / 12, "frame-declared pause {d} exceeds frame/12");
+            biggest = biggest.max(d);
+        }
+        assert!(biggest > 1_500, "a 5-minute frame should think longer than the auto cap, got {biggest}");
+        // no frame declared: the movetime itself sets the game's speed, and the reply
+        // stays within fixed-time patience (at most 5x the movetime)
+        BASE_MINUTES.store(0, Ordering::Relaxed);
         let ctx = Limits { ourtime: Some(300 * 40), inc: 0, movestogo: None, book: false, movetime: Some(300) };
         for _ in 0..50 {
             let d = delay_ms(&b, Some(m), &ctx, 1, 100);
-            assert!(d <= 300 * 5, "movetime 300 pause {d} exceeds 5x movetime");
+            assert!(d <= 300 * 5, "auto movetime 300 pause {d} exceeds 5x movetime");
         }
-        // a big movetime (a slow fixed-time game) gets the fuller human rhythm
-        let ctx = Limits { ourtime: Some(1000 * 40), inc: 0, movestogo: None, book: false, movetime: Some(1000) };
-        let mut biggest = 0;
-        for _ in 0..50 {
-            biggest = biggest.max(delay_ms(&b, Some(m), &ctx, 1, 100));
-        }
-        assert!(biggest > 500, "movetime 1000 biggest pause {biggest} too small to be a rhythm");
-        assert!(biggest <= 1000 * 5);
         BASE_MINUTES.store(0, Ordering::Relaxed);
         THINK.store(0, Ordering::Relaxed);
     }
