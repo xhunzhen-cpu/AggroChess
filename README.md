@@ -1,9 +1,10 @@
-# AggroChess Ultimate Sacrificial Edition 5.1 ⚔️
+# AggroChess Ultimate Sacrificial Edition 5.2 ⚔️
 
 **AggroChess Ultimate Sacrificial Edition** (USE) is a modified version of [AggroChess](https://github.com/PhelRin/AggroChess) 4.5.0 by Rinarto Gibson, the aggressive, sacrificial UCI chess engine written in Rust in the spirit of Mikhail Tal. It keeps AggroChess's search, NNUE evaluation, gambit book and UCI implementation, and adds:
 
 * **a more sacrificial default personality**: in balanced positions about 1.5 times as many purposeful sacrifices per move as AggroChess 4.5.0 (4.9 against 3.2 per 100 moves), more piece sacrifices and Tal chains, sacrifices earlier in the game and from equal positions rather than won ones, and an appetite for sacrifice that no longer switches off after the first one. The price is measured too: more of its sacrifices are objectively unsound, and 5.0 was about 130 Elo weaker than 4.5.0 head-to-head (see [Sacrifice testing](#sacrifice-testing)); 5.1 measured about 80 Elo stronger than 5.0 (see [Brilliance](#brilliance));
 * **five personality controls** as UCI options: `Aggression`, `Sacrifice Appetite`, `King Attack Priority`, `Material Preservation`, `Speculative Sacrifices`;
+* **human-like pacing and style** (`Human Think Time`, `Human Style`, 5.2, both off by default): the reply is held back by a human think calibrated to the position and the time control, and near-equal moves are chosen the way a person chooses (keeping every measured rating valid until you switch it on);
 * **a brilliancy check** (`Brilliance`, 5.1): a second look after every timed search that swaps a quiet move for a *sound* sacrifice when one is nearly as good, and an unsound sacrifice for a clearly better safe move;
 * **a `Skill Level` 1–21 strength limiter** in the style of Patricia's, independent of the personality, with a [measured rating for every level](#measured-strength-of-every-skill-level);
 * standard GUI options (`Hash`, `Clear Hash`, `MultiPV`, `Move Overhead`) and fixes for `go infinite` and `stop`;
@@ -11,7 +12,7 @@
 
 Setting the personality to the *Classic* values reproduces AggroChess 4.5.0's search exactly (same moves and node counts), so the original engine is one preset away.
 
-> This is a modified version of AggroChess, distributed under the GNU GPL v3 (see `LICENSE`). Modifications by the Ultimate Sacrificial Edition, November 2026: personality options, Skill Level, MultiPV, the brilliancy check, UCI fixes and the testing tools. The original 4.5.0 README is kept in [`docs/README_AggroChess_4.5.0.md`](docs/README_AggroChess_4.5.0.md).
+> This is a modified version of AggroChess, distributed under the GNU GPL v3 (see `LICENSE`). Modifications by the Ultimate Sacrificial Edition, November 2026: personality options, Skill Level, MultiPV, the brilliancy check, human think time & style, UCI fixes and the testing tools. The original 4.5.0 README is kept in [`docs/README_AggroChess_4.5.0.md`](docs/README_AggroChess_4.5.0.md).
 
 ## Installing it in a chess GUI
 
@@ -52,6 +53,10 @@ AggroChess is a standard UCI engine: one executable, with the neural network and
 | `Material Preservation` | spin | **15** | 0–100 | How much a material deficit hurts (low: keeps attacking a piece down). |
 | `Speculative Sacrifices` | spin | **90** | 0–100 | How *unsound* a sacrifice may be. |
 | `Brilliance` | spin | **100** | 0–100 | The brilliancy check: plays a sacrifice that is objectively nearly as good as the best move, and drops one that a safe move clearly beats. 0 = off. See [Brilliance](#brilliance). |
+| `Human Think Time` | spin | **0** | 0–100 | How strongly the engine *pauses before answering* like a human would, out of the clock it has been given. **0 = off** (replies the moment the search ends, exactly as before). |
+| `Human Base Minutes` | spin | **0** | 0–480 | The time frame you are playing (1, 3, 5, 15 …). 0 = auto: the pace is learned from the clock the GUI reports instead. |
+| `Human Increment Seconds` | spin | **0** | 0–60 | The increment of that time frame. |
+| `Human Style` | spin | **0** | 0–100 | Among moves the search treats as nearly equal, prefer the natural human choice (development, checks, captures, centre, sacrifices). 0 = off. |
 | `BookPath` | string | ph-gambitbook.bin | | Optional Polyglot book used after the built-in gambit lines. |
 
 `Skill_Level` (Patricia's spelling) is accepted as an alias of `Skill Level`. Changing a personality option clears the hash table (stored scores contain the old personality).
@@ -87,6 +92,50 @@ Measured 2026-11-09, 10+0.1, one thread, same openings and colours (seed 1), ana
 Head-to-head, 5.1 (Brilliance 75) against 5.0: **+42 =14 −24, 61.3%, about +80 Elo** (80 games). The brilliancy check removes unsound sacrifices, which makes the engine both stronger and more often *right* when it sacrifices, and it plays about twice as many sound, brilliant-style sacrifices as 5.0.
 
 What it cannot do is produce several sound sacrifices *every game*: a sacrifice is only sound when the position offers one, and in these games that was the case about once every three games. The counter also misses sacrifices the opponent declined (a piece left en prise that is never taken), which chess.com still marks as brilliant. These are small samples (40–60 games) with wide error bars. The Skill Level ratings below were measured with 5.0, so Skill Level 21 is now somewhat stronger than its listed rating; levels 1–20 are unchanged because the look only runs at level 21.
+
+## Human think time
+
+`Human Think Time` makes the engine pause before sending its `bestmove`, imitating a person
+thinking over the board. With it **off** (the default) nothing changes at all: same move,
+same instant reply. Turn it on once in your GUI's engine settings and set the time frame you
+play (`Human Base Minutes`, `Human Increment Seconds`; or leave both 0 and the engine reads
+the rhythm from the clock the GUI reports on every move).
+
+It is a pure act: **the move is always exactly the one the search picked**, printed later.
+The pause is calibrated to the position:
+
+* every move gets a small human "look" (~1 s in a 5-minute game),
+* wide and sharp positions add more (legal moves, captures and checks available),
+* a move the engine itself sees as a sacrifice gets the long Tal-style think,
+* per-move randomness so no two moves take the same time — the biggest tell of a bot is
+  the metronome.
+
+In a 5+3 game with `Human Think Time` 100 the replies land in roughly 1–20 s; at 1+1 the
+same shape scales down to ~0.3–4 s.
+
+**It cannot lose on time, structurally:**
+
+* the pause never exceeds 1/12 of the remaining clock, *and* below ~2–3 s left (itself
+  scaled by the time frame) the engine stops acting and replies instantly;
+* `go infinite`, `go movetime`, `go depth`, `go nodes` and `searchmoves` are never delayed —
+  analysis stays instant;
+* book moves are not acted on;
+* a `stop` from the GUI during the pause ends it immediately;
+* a genuinely long search already *is* the think: the pause shrinks by the search time, and
+  never pads beyond the target.
+
+Measured (5+3 and 1+1 games, `AGGRO_HUMANDBG=1` shows each pause): search of 2.0 s in a
+1+1 game paused 4.7 s more (complexity 36/100); the same engine down to its last 5 s
+paused 0.46 s (complexity 100) and stopped acting below that; a 14.6 s deep-mode think was
+padded by only 2.2 s.
+
+`Human Style` (same family, separate switch) is the move-choice side of human-like play:
+when several moves are objectively within ~0–25 cp of each other, the engine prefers the
+one a human reaches for — developing a minor piece, castling, central pawn pushes, checks
+and captures, offering material (this is still AggroChess). It only re-ranks near-equal
+candidates the full search produced (the search itself, the brilliancy check and the Tal
+looks are untouched), so in sharp positions nothing changes: it still plays the Greek gift
+with `Human Style` at 100 (a regression test asserts this).
 
 ## Personality settings
 
@@ -180,6 +229,8 @@ Drift = rating at the slower time control minus rating at the main one, both aga
 | **Analysis partner** | 21 | 0 | 0 | 0 | 50 | 0 | Personality off: no sacrifice bonus, symmetric evaluation, no contempt. Use with `MultiPV` 3–5. |
 | **Club sparring** | 10–14 | 90 | 95 | 90 | 15 | 90 | A beatable, very sharp opponent. |
 | **Beginner coach** | 3–7 | 90 | 95 | 90 | 15 | 90 | Recognisable attacking chess with sacrifices you can learn from (and punish). |
+| **Human-feel opponent** | 21 | 90 | 95 | 90 | 15 | 90 | Plus `Human Think Time` 60–100 with your time frame set, and `Human Style` 50–100. Full strength, but it thinks and picks like a person. |
+| **Rated bot, feels human** | any | 90 | 95 | 90 | 15 | 90 | Choose a `Skill Level`, keep every personality option, and add the two human options above: weak levels keep their character while pausing like a human. |
 | **Gentle beginner** | 1–3 | 40 | 40 | 50 | 60 | 30 | Weak and less wild. |
 
 ## Sacrifice testing

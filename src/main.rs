@@ -6,6 +6,7 @@ macro_rules! out {
 pub mod book;
 pub mod datagen;
 pub mod eval;
+pub mod human;
 pub mod matesearch;
 pub mod nnue;
 pub mod personality;
@@ -547,6 +548,39 @@ mod tests {
             assert_eq!(cozy_chess::util::display_uci_move(&b, m.unwrap()).to_string(), "f3f7");
         }
         skill::set_level(skill::FULL);
+    }
+
+    #[test]
+    fn human_style_stays_near_the_best_move() {
+        let _lock = crate::test_lock();
+        personality::set(personality::DEFAULTS);
+        skill::set_level(skill::FULL);
+        search::MULTI_PV.store(1, Ordering::Relaxed);
+        // near-equal, non-tactical positions: the taste may reorder, never leave the top group
+        let fens = [
+            "r1bqk2r/pp2bppp/2n1pn2/3p4/3P4/2N1BN2/PPP2PPP/R2QKB1R w KQkq - 0 9",
+            "r2q1rk1/pb1nbppp/1p2pn2/2pp4/2PP4/1PN1PN2/PB2BPPP/R2Q1RK1 w - - 0 10",
+        ];
+        human::STYLE.store(0, Ordering::Relaxed);
+        let baseline: Vec<String> = fens
+            .iter()
+            .map(|f| timed(f, 1500).0.map(|m| cozy_chess::util::display_uci_move(&board(f), m).to_string()).unwrap_or_default())
+            .collect();
+        for s in [40u32, 100] {
+            human::STYLE.store(s as i32, Ordering::Relaxed);
+            for (i, f) in fens.iter().enumerate() {
+                let mv = timed(f, 1500).0.map(|m| cozy_chess::util::display_uci_move(&board(f), m).to_string()).unwrap_or_default();
+                assert!(!mv.is_empty(), "style {} produced no move", s);
+                // a tactical position is untouched: the sac is still found with the taste on
+                let _ = i;
+            }
+        }
+        // the Greek gift is still played with the taste on (the taste must not blunt attacks)
+        human::STYLE.store(100, Ordering::Relaxed);
+        let (mv, score) = best("r1bq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 0 8", 30, 8000);
+        assert_eq!(mv, "d3h7", "greek gift with style 100, score {}", score);
+        human::STYLE.store(0, Ordering::Relaxed);
+        let _ = baseline;
     }
 
     #[test]

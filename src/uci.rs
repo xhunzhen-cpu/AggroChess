@@ -136,6 +136,26 @@ pub fn uci_loop() {
                                 search::BRILLIANCE.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
                             }
                         }
+                        "human think time" => {
+                            if let Some(v) = int(&value) {
+                                crate::human::THINK.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
+                            }
+                        }
+                        "human base minutes" => {
+                            if let Some(v) = int(&value) {
+                                crate::human::BASE_MINUTES.store(v.clamp(0, 480) as i32, Ordering::Relaxed);
+                            }
+                        }
+                        "human increment seconds" => {
+                            if let Some(v) = int(&value) {
+                                crate::human::INCREMENT_SECONDS.store(v.clamp(0, 60) as i32, Ordering::Relaxed);
+                            }
+                        }
+                        "human style" => {
+                            if let Some(v) = int(&value) {
+                                crate::human::STYLE.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
+                            }
+                        }
                         "skill level" | "skill_level" => {
                             if let Some(v) = int(&value) {
                                 crate::skill::set_level(v.clamp(1, 21) as i32);
@@ -649,15 +669,45 @@ pub fn uci_loop() {
                 stop_flag.store(false, Ordering::SeqCst);
                 search::EXTERNAL_STOP.store(false, Ordering::SeqCst);
                 let wait_for_stop = infinite;
+                // the Human Think Time act: what the timing layer needs to know about this go
+                let human = crate::human::Limits {
+                    ourtime: if infinite || movetime.is_some() {
+                        None
+                    } else {
+                        let (t, i) = if board.side_to_move() == Color::White { (wtime, winc) } else { (btime, binc) };
+                        if limits.depth.is_some() || limits.nodes.is_some() { None } else { t.map(|tt| tt.saturating_add(i)) }
+                    },
+                    inc: if board.side_to_move() == Color::White { winc } else { binc },
+                    movestogo,
+                    book: false,
+                };
+                // the bestmove reply is postponed by the Human Think Time act (0 = at once)
                 search_thread = Some(
                     std::thread::Builder::new()
                         .stack_size(SEARCH_STACK)
                         .spawn(move || {
+                            let t0 = std::time::Instant::now();
                             let (best, _) = search::search_position(&search_board, &hist, limits, stop_clone, true);
+                            let think_ms = t0.elapsed().as_millis();
                             // `go infinite`: the GUI decides when the search is over, even when the
                             // search itself has finished (a mate found, a Skill Level budget spent)
                             while wait_for_stop && !search::EXTERNAL_STOP.load(Ordering::SeqCst) {
                                 std::thread::sleep(Duration::from_millis(2));
+                            }
+                            if !wait_for_stop {
+                                let comp = search::LAST_COMPLEXITY.swap(0, Ordering::Relaxed);
+                                let wait = crate::human::delay_ms(&search_board, best, &human, think_ms, comp);
+                                if wait > 0 {
+                                    if std::env::var_os("AGGRO_HUMANDBG").is_some() {
+                                        out!("info string human think: waiting {} ms (complexity {}, search {} ms)", wait, comp, think_ms);
+                                    }
+                                    // interruptible: a `stop` that arrives during the act ends it
+                                    // at once (stop_and_join sets EXTERNAL_STOP first)
+                                    let until = std::time::Instant::now() + Duration::from_millis(wait);
+                                    while std::time::Instant::now() < until && !search::EXTERNAL_STOP.load(Ordering::SeqCst) {
+                                        std::thread::sleep(Duration::from_millis(2));
+                                    }
+                                }
                             }
                             match best {
                                 Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&search_board, mv)),
@@ -769,6 +819,10 @@ pub fn option_lines() -> Vec<String> {
         format!("option name Material Preservation type spin default {} min 0 max 100", p.material_preservation),
         format!("option name Speculative Sacrifices type spin default {} min 0 max 100", p.speculative),
         format!("option name Brilliance type spin default {} min 0 max 100", search::BRILLIANCE_DEFAULT),
+        "option name Human Think Time type spin default 0 min 0 max 100".to_string(),
+        "option name Human Base Minutes type spin default 0 min 0 max 480".to_string(),
+        "option name Human Increment Seconds type spin default 0 min 0 max 60".to_string(),
+        "option name Human Style type spin default 0 min 0 max 100".to_string(),
         "option name BookPath type string default ph-gambitbook.bin".to_string(),
     ]
 }
@@ -790,6 +844,10 @@ fn is_user_option(name: &str) -> bool {
             | "material preservation"
             | "speculative sacrifices"
             | "brilliance"
+            | "human think time"
+            | "human base minutes"
+            | "human increment seconds"
+            | "human style"
             | "bookpath"
     )
 }

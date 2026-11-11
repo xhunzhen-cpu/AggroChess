@@ -12,7 +12,7 @@
 use crate::eval::{self, SEE_VALUE};
 use crate::nnue::Accumulator;
 use cozy_chess::{BitBoard, Board, Color, Move, Piece, Square};
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -32,6 +32,12 @@ pub const BRILLIANCE_DEFAULT: i32 = 100;
 pub static BRILLIANCE: AtomicI32 = AtomicI32::new(BRILLIANCE_DEFAULT);
 /// share of the move's time kept back for the brilliancy look (percent)
 pub static BRILLIANCE_PCT: AtomicI32 = AtomicI32::new(30);
+/// how many root lines the Human Style taste compares (it re-ranks only near-equal ones)
+const HUMAN_STYLE_PV: usize = 4;
+/// How hard the last search's position was, 0..=100 (read by the Human Think Time act):
+/// built from how often the best move changed between depths (a human feels a hard position)
+/// and how sharp the position is (checks and captures available).
+pub static LAST_COMPLEXITY: AtomicU32 = AtomicU32::new(0);
 /// Set when the GUI sent `stop` (or `quit`): every search, including the side searches of the
 /// long-think features, stops at its next time check. Cleared at the start of every `go`.
 pub static EXTERNAL_STOP: AtomicBool = AtomicBool::new(false);
@@ -438,13 +444,14 @@ fn mate_threat(board: &Board) -> bool {
 }
 
 /// After a move (the opponent now to move in `child`), can the opponent win material
-/// (a capture worth two pawns or more by static exchange)? Then the move was a sacrifice.
-pub fn leaves_material(child: &Board) -> bool {
+/// (a capture worth `gain` by static exchange)? Then the move gave something up. The
+/// sacrifice rules use 200 (two pawns); the human-timing module uses 250 (a real piece).
+pub fn leaves_material_at(child: &Board, gain: i32) -> bool {
     let them = child.colors(!child.side_to_move()).0;
     let mut found = false;
     child.generate_moves(|mvs| {
         for m in mvs {
-            if them & m.to.bitboard().0 != 0 && see_ge(child, m, 200) {
+            if them & m.to.bitboard().0 != 0 && see_ge(child, m, gain) {
                 found = true;
                 return true;
             }
@@ -452,6 +459,11 @@ pub fn leaves_material(child: &Board) -> bool {
         false
     });
     found
+}
+
+/// `leaves_material_at` with the standard two-pawn threshold: did the move sacrifice?
+pub fn leaves_material(child: &Board) -> bool {
+    leaves_material_at(child, 200)
 }
 
 /// Root moves for Tal's look: sacrifices of a piece or more (the moved piece, or something left
@@ -523,22 +535,6 @@ fn tal_candidates_ex(board: &Board, root_moves: &[Move], quiet_too: bool) -> Vec
     }
     out.sort_by(|a, b| b.0.cmp(&a.0));
     out.into_iter().take(2).map(|x| x.1).collect()
-}
-
-/// Like `leaves_material`, with the gain threshold given.
-fn leaves_material_at(child: &Board, gain: i32) -> bool {
-    let them = child.colors(!child.side_to_move()).0;
-    let mut found = false;
-    child.generate_moves(|mvs| {
-        for m in mvs {
-            if them & m.to.bitboard().0 != 0 && see_ge(child, m, gain) {
-                found = true;
-                return true;
-            }
-        }
-        false
-    });
-    found
 }
 
 /// Static exchange evaluation: is the material outcome of `mv` >= `threshold`?
@@ -2800,6 +2796,26 @@ fn search_position_inner(
     let mut stability = 0;
     let mut prev_score = 0;
     let mut done_depth = 0;
+    // Human Think Time: how hard the position was - how often the best move changed between
+    // completed depths (instability) and how sharp the position is (checks and captures)
+    let mut flips = 0u32;
+    let mut sharp = 0u32;
+    {
+        let mut caps = 0;
+        let mut checks = 0;
+        for &m in &root_moves {
+            if board.colors(!board.side_to_move()).has(m.to) {
+                caps += 1;
+            } else {
+                let mut child = board.clone();
+                child.play_unchecked(m);
+                if !child.checkers().is_empty() {
+                    checks += 1;
+                }
+            }
+        }
+        sharp = ((caps.min(6) + 2 * checks.min(6)) * 6).min(72);
+    }
     // MultiPV: lines shown to the GUI, and lines searched (more for a weakened engine, which
     // chooses among them). Never more than the moves there are to search.
     let shown_pv = MULTI_PV.load(Ordering::Relaxed).max(1);
@@ -2808,7 +2824,11 @@ fn search_position_inner(
     } else {
         root_filter_now.iter().filter(|m| root_moves.contains(m)).count().max(1)
     };
-    let n_lines = weak.map_or(shown_pv, |w| w.multipv.max(shown_pv)).min(allowed).max(1);
+    // Human Style at full strength needs candidates to choose among: ask the root for a few
+    // more lines than the GUI shows (they are not printed; only the taste reads them).
+    let human_style_on = full && crate::human::STYLE.load(Ordering::Relaxed) > 0 && shown_pv == 1;
+    let wanted_lines = if human_style_on { HUMAN_STYLE_PV.max(shown_pv) } else { shown_pv };
+    let n_lines = weak.map_or(wanted_lines, |w| w.multipv.max(wanted_lines)).min(allowed).max(1);
     let mut lines: Vec<crate::skill::Line> = Vec::new();
     // the node budget only applies from depth 2 on: depth 1 always completes, so even the
     // smallest budget plays a move it has actually looked at
@@ -2934,6 +2954,9 @@ fn search_position_inner(
             stability += 1;
         } else {
             stability = 0;
+            if prev_best.is_some() {
+                flips += 1;
+            }
         }
         prev_best = best_move;
         if let Some(soft) = limits.soft {
@@ -3174,6 +3197,50 @@ fn search_position_inner(
         }
     }
 
+    // ---- Human Style: the natural-move taste ----
+    // Among near-equal moves, prefer the one a human reaches for. Only the search's own
+    // finished candidates take part, only when their scores are within a small tactical
+    // margin of the best (so the engine is never made materially worse and sharp positions
+    // are untouched), and only when nothing before this (skill choice, brilliancy look)
+    // already picked a move on purpose. The bonus re-ranks; it never re-values.
+    if crate::human::STYLE.load(Ordering::Relaxed) > 0
+        && best_score.abs() < MATE_BOUND
+        && n_lines > 1
+        && lines.len() > 1
+        && done_depth >= 5
+        && full
+    {
+        // Margin: taste is worth at most this much; inside it the natural move wins.
+        let style_score = crate::human::STYLE.load(Ordering::Relaxed).clamp(0, 100);
+        let margin = 10 + style_score / 7; // 100 -> 24 cp
+        let near: Vec<crate::skill::Line> = lines
+            .iter()
+            .filter(|l| (lines[0].score - l.score) <= margin && l.score.abs() < MATE_BOUND)
+            .cloned()
+            .collect();
+        if near.len() > 1 {
+            let pairs: Vec<(Move, i32)> = near.iter().map(|l| (l.mv, l.score)).collect();
+            let pick = crate::human::natural_pick(board, &pairs);
+            let l = &near[pick];
+            if l.mv != best_move.unwrap() {
+                if print_info {
+                    let bonus = crate::human::natural_bonus(board, l.mv) - crate::human::natural_bonus(board, best_move.unwrap());
+                    out!(
+                        "info string human style: {} instead of {} (+{} natural, {} cp apart)",
+                        cozy_chess::util::display_uci_move(board, l.mv),
+                        cozy_chess::util::display_uci_move(board, best_move.unwrap()),
+                        bonus,
+                        lines[0].score - l.score
+                    );
+                }
+                best_move = Some(l.mv);
+                best_score = l.score;
+                best_sb = l.sb;
+                *LAST_PV.lock().unwrap() = l.pv.clone();
+            }
+        }
+    }
+
     // ---- Tal's look ----
     if !tal_cands.is_empty() && best_score.abs() < MATE_BOUND {
         let used = start.elapsed();
@@ -3386,6 +3453,7 @@ fn search_position_inner(
             }
         }
     }
+    LAST_COMPLEXITY.store((flips * 9 + sharp).min(100), Ordering::Relaxed);
     LAST_SCORE.store(best_score, Ordering::Relaxed);
     LAST_OBJ.store(if best_score.abs() < MATE_BOUND { best_score - best_sb } else { best_score }, Ordering::Relaxed);
     (best_move, best_score)
