@@ -113,6 +113,13 @@ The pause is calibrated to the position:
 In a 5+3 game with `Human Think Time` 100 the replies land in roughly 1–20 s; at 1+1 the
 same shape scales down to ~0.3–4 s.
 
+Fixed-time games (`go movetime`, the "time limit per move" mode some GUIs and bots use)
+act too: the engine has no clock to read there, so the pace is taken from the movetime
+itself (movetime × 40 is the "game"), and a pause is never longer than **5× the movetime**
+so a fixed-time caller always gets its reply within fixed-time patience. With a 300 ms
+movetime the pauses are 0.1–1.5 s; with a 1 s movetime up to ~4.5 s. Set the frame options
+anyway: they matter the moment the same engine plays a real clock game.
+
 **It cannot lose on time, structurally:**
 
 * the pause never exceeds 1/12 of the remaining clock, *and* below ~2–3 s left (itself

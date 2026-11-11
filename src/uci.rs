@@ -669,17 +669,43 @@ pub fn uci_loop() {
                 stop_flag.store(false, Ordering::SeqCst);
                 search::EXTERNAL_STOP.store(false, Ordering::SeqCst);
                 let wait_for_stop = infinite;
-                // the Human Think Time act: what the timing layer needs to know about this go
+                // the Human Think Time act: what the timing layer needs to know about this go.
+                // A fixed `go movetime` is a game too: the engine never sees the clock, so the
+                // user's time-frame setting (Human Base Minutes, or 60 s as a fallback) stands
+                // in for it and the pace acts normally on top of the fixed search time.
+                let movetime_frame = movetime.map(|mt| {
+                    // A fixed movetime game has no visible clock, so the pace needs a frame.
+                    // The game's real speed is the movetime itself: a 300 ms-per-move game
+                    // is a fast game and the pauses belong to that rhythm, whatever frame
+                    // the user plays clock games in (a slow movetime, 1-2 s, implies a
+                    // slower rhythm). The pause is additionally capped at 5x the movetime
+                    // below, so a fixed-time game always answers within a fixed-time
+                    // patience (conformance harnesses and fixed-time GUIs expect that).
+                    mt.saturating_mul(40)
+                });
                 let human = crate::human::Limits {
-                    ourtime: if infinite || movetime.is_some() {
+                    ourtime: if infinite {
                         None
+                    } else if let Some(frame) = movetime_frame {
+                        Some(frame)
                     } else {
                         let (t, i) = if board.side_to_move() == Color::White { (wtime, winc) } else { (btime, binc) };
-                        if limits.depth.is_some() || limits.nodes.is_some() { None } else { t.map(|tt| tt.saturating_add(i)) }
+                        if limits.depth.is_some() || limits.nodes.is_some() {
+                            None
+                        } else if t.is_none() {
+                            // no clock reported at all: act in the frame the user set, if any
+                            let mins = crate::human::BASE_MINUTES.load(Ordering::Relaxed).max(0);
+                            if mins == 0 { None } else { Some(60_000 * mins as u64) }
+                        } else {
+                            t.map(|tt| tt.saturating_add(i))
+                        }
                     },
-                    inc: if board.side_to_move() == Color::White { winc } else { binc },
+                    inc: if movetime.is_some() {
+                        crate::human::INCREMENT_SECONDS.load(Ordering::Relaxed).max(0) as u64 * 1000
+                    } else if board.side_to_move() == Color::White { winc } else { binc },
                     movestogo,
                     book: false,
+                    movetime,
                 };
                 // the bestmove reply is postponed by the Human Think Time act (0 = at once)
                 search_thread = Some(

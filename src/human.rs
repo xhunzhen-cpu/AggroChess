@@ -43,6 +43,9 @@ pub struct Limits {
     pub movestogo: Option<u64>,
     /// true when the move came from the opening book (no act)
     pub book: bool,
+    /// a fixed `go movetime` game: the pause is capped at 5x this (ms), because a
+    /// fixed-time caller expects the reply within fixed-time patience
+    pub movetime: Option<u64>,
 }
 
 /// Count of legal moves in a position (0 on game over).
@@ -110,7 +113,11 @@ pub fn delay_ms(board: &Board, mv: Option<Move>, ctx: &Limits, think_ms: u128, c
         return 0;
     }
     // never more than 1/12 of the remaining clock, whatever the act says below
-    let cap = ourtime / 12;
+    let mut cap = ourtime / 12;
+    // a fixed movetime game answers within fixed-time patience: at most 5x the movetime
+    if let Some(mt) = ctx.movetime {
+        cap = cap.min(mt.saturating_mul(5));
+    }
     // ---- the scale of one move in this time frame ----
     // The base breath of a move: a normal think is a fixed slice (~5% of the frame), and
     // the unit count multiplies it. In a 5-minute game a "normal" move gets ~1.5 s and the
@@ -267,11 +274,11 @@ mod tests {
         THINK.store(0, Ordering::Relaxed);
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
         assert_eq!(delay_ms(&b, Some(m), &ctx, 5, 50), 0);
         // a book move gets no act even at full intensity
         THINK.store(100, Ordering::Relaxed);
-        let ctx2 = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: true };
+        let ctx2 = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: true, movetime: None };
         assert_eq!(delay_ms(&b, Some(m), &ctx2, 5, 50), 0);
         THINK.store(0, Ordering::Relaxed);
     }
@@ -282,7 +289,7 @@ mod tests {
         THINK.store(100, Ordering::Relaxed);
         BASE_MINUTES.store(5, Ordering::Relaxed);
         for &left in &[2_999u64, 1_000, 500] {
-            let ctx = Limits { ourtime: Some(left), inc: 0, movestogo: None, book: false };
+            let ctx = Limits { ourtime: Some(left), inc: 0, movestogo: None, book: false, movetime: None };
             let b = Board::default();
             let m = mv(&b, "e2", "e4");
             assert_eq!(delay_ms(&b, Some(m), &ctx, 1, 100), 0, "waited with {left} ms left");
@@ -299,7 +306,7 @@ mod tests {
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
         // a very sharp position on a big clock: still at most 1/12 of the clock
-        let mut ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false };
+        let mut ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
         let d = delay_ms(&b, Some(m), &ctx, 1, 100);
         assert!(d <= 300_000 / 12, "delay {d} exceeds the cap");
         // a longer frame waits longer on average than a short one
@@ -316,13 +323,39 @@ mod tests {
     }
 
     #[test]
+    fn movetime_games_pause_within_fixed_time_patience() {
+        let _lock = crate::test_lock();
+        THINK.store(100, Ordering::Relaxed);
+        BASE_MINUTES.store(5, Ordering::Relaxed); // a clock-game frame must not leak into this
+        let b = Board::default();
+        let m = mv(&b, "e2", "e4");
+        // the frame implied by movetime 300 is 300*40 ms; the hardest think is 1/12 of it,
+        // and never more than 5x the movetime -> at most 1500 ms
+        let ctx = Limits { ourtime: Some(300 * 40), inc: 0, movestogo: None, book: false, movetime: Some(300) };
+        for _ in 0..50 {
+            let d = delay_ms(&b, Some(m), &ctx, 1, 100);
+            assert!(d <= 300 * 5, "movetime 300 pause {d} exceeds 5x movetime");
+        }
+        // a big movetime (a slow fixed-time game) gets the fuller human rhythm
+        let ctx = Limits { ourtime: Some(1000 * 40), inc: 0, movestogo: None, book: false, movetime: Some(1000) };
+        let mut biggest = 0;
+        for _ in 0..50 {
+            biggest = biggest.max(delay_ms(&b, Some(m), &ctx, 1, 100));
+        }
+        assert!(biggest > 500, "movetime 1000 biggest pause {biggest} too small to be a rhythm");
+        assert!(biggest <= 1000 * 5);
+        BASE_MINUTES.store(0, Ordering::Relaxed);
+        THINK.store(0, Ordering::Relaxed);
+    }
+
+    #[test]
     fn long_search_shrinks_the_act() {
         let _lock = crate::test_lock();
         THINK.store(100, Ordering::Relaxed);
         BASE_MINUTES.store(5, Ordering::Relaxed);
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
         let short_think = delay_ms(&b, Some(m), &ctx, 1, 60);
         let long_think = delay_ms(&b, Some(m), &ctx, 10_000, 60);
         assert!(long_think < short_think, "act after a 10 s think {long_think} not shorter than after 1 ms {short_think}");
@@ -337,7 +370,7 @@ mod tests {
         BASE_MINUTES.store(5, Ordering::Relaxed);
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
         // many draws: the randomness must not swamp the trend
         let avg = |cx: u32| {
             let mut s = 0u64;
