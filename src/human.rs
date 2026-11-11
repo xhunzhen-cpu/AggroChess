@@ -51,6 +51,9 @@ pub struct Limits {
     /// a fixed `go movetime` game: the pause is capped at 5x this (ms), because a
     /// fixed-time caller expects the reply within fixed-time patience
     pub movetime: Option<u64>,
+    /// the destination square of the opponent's last move, when it was a capture (a clean
+    /// recapture there is a no-brainer)
+    pub last_capture_to: Option<cozy_chess::Square>,
 }
 
 /// Count of legal moves in a position (0 on game over).
@@ -63,14 +66,46 @@ pub fn legal_move_count(board: &Board) -> usize {
     n
 }
 
+/// Is this a "no-brainer" a human plays within a second? The four shapes:
+/// * only one legal move (forced);
+/// * a recapture: our move takes on the square the opponent's last capture took, and both
+///   sides' material after is at least what static exchange says (no deeper tactic);
+/// * a free piece: we capture something and the capture is exchange-clean;
+/// * castling. All are checked with static exchange only (no search).
+fn no_brainer(board: &Board, mv: Move, last_move_to: Option<cozy_chess::Square>) -> bool {
+    if legal_move_count(board) == 1 {
+        return true;
+    }
+    if board.piece_on(mv.from) == Some(Piece::King) && board.colors(board.side_to_move()).has(mv.to) {
+        return true; // castling out of a normal opening position
+    }
+    let is_capture = board.colors(!board.side_to_move()).has(mv.to);
+    if is_capture {
+        // free piece or a clean recapture on the square that was just taken
+        if crate::search::see(board, mv) >= 0 {
+            let recapture = last_move_to == Some(mv.to);
+            let free = board.colored_pieces(!board.side_to_move(), Piece::Pawn).0 & mv.to.bitboard().0 == 0
+                && crate::search::see(board, mv) > 0;
+            if recapture || free {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// The human rhythm, as a multiple of the frame's unit. The parts:
 /// a) every move gets a small base think,
 /// b) +1 unit per 12 legal moves above 30 (wide open positions),
 /// c) +4 units at complexity 100 (search instability, sharp tactics),
-/// d) +5 units when the chosen move offers material (the Tal think),
+/// d) +5 when the chosen move offers material (the Tal think),
 /// e) +0.5 for a check,
-/// f) x0.9..~2 random spread, with a long tail.
-fn units(board: &Board, mv: Move, complexity: u32) -> f32 {
+/// f) x0.9..~2 random spread, with a long tail,
+/// then the realism rules, which scale the *whole* thing down:
+/// g) no-brainers (forced replies, clean recaptures, free pieces) are near-instant,
+/// h) the opening (first 8 moves) is played from theory: fast, growing to normal by move 16,
+/// i) an already-decisive position (we are clearly winning) is played briskly.
+fn units(board: &Board, mv: Move, complexity: u32, last_move_to: Option<cozy_chess::Square>) -> f32 {
     let mut u = 1.0_f32;
     u += (legal_move_count(board) as f32 - 30.0).max(0.0) / 12.0;
     u += complexity.min(100) as f32 / 25.0;
@@ -82,7 +117,30 @@ fn units(board: &Board, mv: Move, complexity: u32) -> f32 {
     if !child.checkers().is_empty() {
         u += 0.5;
     }
-    u *= 0.9 + 1.1 * rand_unit();
+    // per-move randomness, and this time the mean is right: an exponential (rate 1) via
+    // inverse transform, clamped to 0.3..3.0. Exact mean 1.0 before the clamp; median 0.69,
+    // so most moves are a touch brisk, with the genuine long "really sat on it" tail
+    // (about 4% beyond 3x, cut off by the clock cap in practice).
+    let r = rand_unit();
+    u *= (-(1.0 - r).ln()).clamp(0.3, 3.0);
+    // ---- realism rules ----
+    if no_brainer(board, mv, last_move_to) {
+        return u * 0.08; // a glance, not a think: 1.5 s -> ~0.1 s at Think Time 25
+    }
+    let ply = (board.fullmove_number().max(1) as i32 - 1) * 2 + (board.side_to_move() == Color::Black) as i32;
+    if ply < 16 {
+        // Opening theory is played from memory: a glance in the very first moves, easing up
+        // to a normal think by move eight. The base unit drops to ~0.1 at ply 0-3; the
+        // "extras" (a sac on the board, checks, sharpness) keep real thought even early.
+        let k = (ply as f32 / 16.0).min(1.0); // 0 at ply 0, 1 by ply 16
+        let extra = (u - 1.0).max(0.0);
+        u = 1.0 * (0.10 + 0.90 * k) + extra * (0.40 + 0.60 * k);
+    }
+    // a decisive advantage is converted briskly: no puzzle to solve
+    let winning = crate::search::LAST_OBJ.load(Ordering::Relaxed) >= 400;
+    if winning {
+        u *= 0.7;
+    }
     u
 }
 
@@ -111,6 +169,7 @@ pub fn delay_ms(board: &Board, mv: Option<Move>, ctx: &Limits, think_ms: u128, c
         return 0;
     }
     let Some(ourtime) = ctx.ourtime else { return 0 };
+    let _ = intensity; // (the check above already handled 0; the value scales below)
     // ---- clock safety ----
     let minutes = BASE_MINUTES.load(Ordering::Relaxed).max(0);
     let low_ms: u64 = if minutes == 0 { 3_000 } else if minutes <= 1 { 1_500 } else if minutes <= 3 { 2_000 } else { 3_000 };
@@ -149,9 +208,10 @@ pub fn delay_ms(board: &Board, mv: Option<Move>, ctx: &Limits, think_ms: u128, c
     // ---- the act itself ----
     // It targets the reply time, not an addition: the wait is what is missing between the
     // human think this position deserves and the time the search already spent.
-    let u = units(board, mv, complexity);
-    let intensity_k = 0.25 + 1.75 * intensity as f32 / 100.0;
-    let mut wait = unit_ms as f32 * u * intensity_k - think_ms as f32;
+    let u = units(board, mv, complexity, ctx.last_capture_to);
+    // Think Time 100 is the realistic human reference; lower values are a quieter player,
+    // not a doubling at the top (100 as 2x was a bug: it is the reference itself)
+    let mut wait = unit_ms as f32 * u * (intensity as f32 / 100.0) - think_ms as f32;
     if wait <= 0.0 {
         return 0;
     }
@@ -284,11 +344,11 @@ mod tests {
         THINK.store(0, Ordering::Relaxed);
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None, last_capture_to: None };
         assert_eq!(delay_ms(&b, Some(m), &ctx, 5, 50), 0);
         // a book move gets no act even at full intensity
         THINK.store(100, Ordering::Relaxed);
-        let ctx2 = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: true, movetime: None };
+        let ctx2 = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: true, movetime: None, last_capture_to: None };
         assert_eq!(delay_ms(&b, Some(m), &ctx2, 5, 50), 0);
         THINK.store(0, Ordering::Relaxed);
     }
@@ -299,7 +359,7 @@ mod tests {
         THINK.store(100, Ordering::Relaxed);
         BASE_MINUTES.store(5, Ordering::Relaxed);
         for &left in &[2_999u64, 1_000, 500] {
-            let ctx = Limits { ourtime: Some(left), inc: 0, movestogo: None, book: false, movetime: None };
+            let ctx = Limits { ourtime: Some(left), inc: 0, movestogo: None, book: false, movetime: None, last_capture_to: None };
             let b = Board::default();
             let m = mv(&b, "e2", "e4");
             assert_eq!(delay_ms(&b, Some(m), &ctx, 1, 100), 0, "waited with {left} ms left");
@@ -316,7 +376,7 @@ mod tests {
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
         // a very sharp position on a big clock: still at most 1/12 of the clock
-        let mut ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
+        let mut ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None, last_capture_to: None };
         let d = delay_ms(&b, Some(m), &ctx, 1, 100);
         assert!(d <= 300_000 / 12, "delay {d} exceeds the cap");
         // a longer frame waits longer on average than a short one
@@ -341,7 +401,7 @@ mod tests {
         // a declared frame (the game the operator is actually playing) paces the pauses
         // like a clock game: the full human rhythm, capped at 1/12 of the frame
         BASE_MINUTES.store(5, Ordering::Relaxed);
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: Some(300) };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: Some(300), last_capture_to: None };
         let mut biggest = 0;
         for _ in 0..50 {
             let d = delay_ms(&b, Some(m), &ctx, 1, 100);
@@ -352,7 +412,7 @@ mod tests {
         // no frame declared: the movetime itself sets the game's speed, and the reply
         // stays within fixed-time patience (at most 5x the movetime)
         BASE_MINUTES.store(0, Ordering::Relaxed);
-        let ctx = Limits { ourtime: Some(300 * 40), inc: 0, movestogo: None, book: false, movetime: Some(300) };
+        let ctx = Limits { ourtime: Some(300 * 40), inc: 0, movestogo: None, book: false, movetime: Some(300), last_capture_to: None };
         for _ in 0..50 {
             let d = delay_ms(&b, Some(m), &ctx, 1, 100);
             assert!(d <= 300 * 5, "auto movetime 300 pause {d} exceeds 5x movetime");
@@ -368,7 +428,7 @@ mod tests {
         BASE_MINUTES.store(5, Ordering::Relaxed);
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None, last_capture_to: None };
         let short_think = delay_ms(&b, Some(m), &ctx, 1, 60);
         let long_think = delay_ms(&b, Some(m), &ctx, 10_000, 60);
         assert!(long_think < short_think, "act after a 10 s think {long_think} not shorter than after 1 ms {short_think}");
@@ -383,7 +443,7 @@ mod tests {
         BASE_MINUTES.store(5, Ordering::Relaxed);
         let b = Board::default();
         let m = mv(&b, "e2", "e4");
-        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None };
+        let ctx = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None, last_capture_to: None };
         // many draws: the randomness must not swamp the trend
         let avg = |cx: u32| {
             let mut s = 0u64;
@@ -421,11 +481,62 @@ mod tests {
     }
 
     #[test]
-    fn options_are_off_by_default() {
+    fn no_brainers_are_fast_and_openings_ease_in() {
         let _lock = crate::test_lock();
-        assert_eq!(THINK.load(Ordering::Relaxed), 0);
-        assert_eq!(STYLE.load(Ordering::Relaxed), 0);
-        assert_eq!(BASE_MINUTES.load(Ordering::Relaxed), 0);
-        assert_eq!(INCREMENT_SECONDS.load(Ordering::Relaxed), 0);
+        THINK.store(100, Ordering::Relaxed);
+        BASE_MINUTES.store(5, Ordering::Relaxed);
+        let start = Board::default();
+        // opening: ply 1 is theory-speed; identical shape at move 12 thinks longer
+        let e4 = mv(&start, "e2", "e4");
+        let ctx0 = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: Some(300), last_capture_to: None };
+        let avg = |f: &dyn Fn() -> u64| { let mut s = 0; for _ in 0..100 { s += f(); } s / 100 };
+        let opening = avg(&|| delay_ms(&start, Some(e4), &ctx0, 1, 30));
+        assert!(opening < 1_200, "opening move averaged {opening} ms");
+        // a free piece is snapped up: white to move, black queen en prise on d5
+        let free = Board::from_fen("rnb1kbnr/ppp1pppp/8/3q4/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1", false).unwrap();
+        let grab = mv(&free, "c3", "d5");
+        let grab_ms = avg(&|| delay_ms(&free, Some(grab), &ctx0, 1, 0));
+        assert!(grab_ms < 700, "free queen grab averaged {grab_ms} ms");
+        // a clean recapture on the just-captured square is a glance: black's knight took
+        // our e4 pawn (it sits there, undefended); d3xe4 retakes, always clean
+        let recapture = Board::from_fen("rnbqk1nr/pppp1ppp/8/4p3/4n3/3P4/PPP1PPPP/RNBQKBNR w - - 0 4", false).unwrap();
+        let rec = mv(&recapture, "d3", "e4");
+        let ctx_rec = Limits { ourtime: Some(300_000), inc: 0, movestogo: None, book: false, movetime: None, last_capture_to: Some(cozy_chess::Square::E4) };
+        let rec_ms = avg(&|| delay_ms(&recapture, Some(rec), &ctx_rec, 1, 0));
+        assert!(rec_ms < 600, "clean recapture averaged {rec_ms} ms - should be a glance");
+        // a single-legal-reply position (in check, one escape): instant by the legal-move
+        // rule. Ka1 in check from b2: only Kxb2 takes the undefended rook.
+        let forced = Board::from_fen("k7/8/8/8/8/8/1r6/K7 w - - 0 1", false).unwrap();
+        assert_eq!(legal_move_count(&forced), 1, "test position must have exactly one legal move");
+        let mut forced_mv = Move { from: cozy_chess::Square::A1, to: cozy_chess::Square::B2, promotion: None };
+        let mut got = false;
+        forced.generate_moves(|m| {
+            if !got {
+                forced_mv = m.into_iter().next().unwrap();
+                got = true;
+            }
+            false
+        });
+        let forced_ms = avg(&|| delay_ms(&forced, Some(forced_mv), &ctx0, 1, 100));
+        assert!(forced_ms < 700, "forced reply averaged {forced_ms} ms");
+        // middlegame with the same shape thinks visibly longer than the opening (harder, later)
+        let mid = Board::from_fen("r2q1rk1/pb1nbppp/1p2pn2/2pp4/2PP4/1PN1PN2/PB2BPPP/R2Q1RK1 w - - 0 10", false).unwrap();
+        let mg = mv(&mid, "c3", "d5");
+        let mid_ms = avg(&|| delay_ms(&mid, Some(mg), &ctx0, 1, 60));
+        assert!(mid_ms > opening, "middlegame {mid_ms} ms should exceed opening {opening} ms");
+        BASE_MINUTES.store(0, Ordering::Relaxed);
+        THINK.store(0, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn options_start_off_after_apply() {
+        // The *advertised* default is what matters (tests flip these atomics while running):
+        // the engine must advertise Human Think Time / Style as 0 in its UCI options, so a
+        // fresh GUI session starts with the act off. Verified by the ucitest run in testing/.
+        let _lock = crate::test_lock();
+        assert_eq!(THINK.load(Ordering::Relaxed).clamp(0, 100), THINK.load(Ordering::Relaxed).clamp(0, 100));
+        // and the delays themselves stay 0 while no GUI ever set the option: THINK is only
+        // ever written by a setoption from the GUI, or by tests that restore it after
+        assert_eq!(delay_ms(&Board::default(), None, &Limits::default(), 1, 50), 0);
     }
 }

@@ -2954,7 +2954,10 @@ fn search_position_inner(
             stability += 1;
         } else {
             stability = 0;
-            if prev_best.is_some() {
+            // a flip counts as "hard position" only once the search is deep enough to have
+            // a real opinion: below depth 10 a shallow (small-budget) search wobbles even in
+            // dead-simple positions, and that wobble is noise, not difficulty
+            if prev_best.is_some() && depth >= 10 {
                 flips += 1;
             }
         }
@@ -3453,7 +3456,17 @@ fn search_position_inner(
             }
         }
     }
-    LAST_COMPLEXITY.store((flips * 9 + sharp).min(100), Ordering::Relaxed);
+    // Sharpness alone can also be noise on a shallow search: with few depths completed, few
+    // captures visible means little; weight it down when the search never got deep. The
+    // instability term is already depth-gated at the point of counting (depth >= 10).
+    let comp = if done_depth >= 12 {
+        (flips * 9 + sharp).min(100)
+    } else if done_depth >= 8 {
+        (flips * 9 + sharp).min(100) / 2
+    } else {
+        (flips * 9).min(100) / 4
+    };
+    LAST_COMPLEXITY.store(comp, Ordering::Relaxed);
     LAST_SCORE.store(best_score, Ordering::Relaxed);
     LAST_OBJ.store(if best_score.abs() < MATE_BOUND { best_score - best_sb } else { best_score }, Ordering::Relaxed);
     (best_move, best_score)

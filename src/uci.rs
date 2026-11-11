@@ -54,6 +54,9 @@ pub fn uci_loop() {
     let mut move_overhead: u64 = 50; // ms reserved per move for GUI / network lag
     let mut history_hashes = vec![board.hash()];
     let mut prev_plies: usize = 0;
+    // the destination square of the opponent's last move, when it captured something
+    // (a clean recapture on that square is a no-brainer for the human timing)
+    let mut last_capture_to: Option<cozy_chess::Square> = None;
 
     let stop_flag = Arc::new(AtomicBool::new(false));
     let mut search_thread: Option<std::thread::JoinHandle<()>> = None;
@@ -502,6 +505,7 @@ pub fn uci_loop() {
             "position" => {
                 stop_and_join(&stop_flag, &mut search_thread);
                 history_hashes.clear();
+                last_capture_to = None;
                 let mut moves_index = None;
                 if tokens.len() >= 2 && tokens[1] == "startpos" {
                     board = Board::default();
@@ -532,6 +536,12 @@ pub fn uci_loop() {
                         match cozy_chess::util::parse_uci_move(&board, mv_str) {
                             Ok(mv) if board.is_legal(mv) => {
                                 movers.push(board.side_to_move());
+                                // the human timing wants to know if this move grabbed something
+                                last_capture_to = if board.colors(!board.side_to_move()).has(mv.to) {
+                                    Some(mv.to)
+                                } else {
+                                    None
+                                };
                                 board.play_unchecked(mv);
                                 history_hashes.push(board.hash());
                                 mat_hist.push(sac_material(&board));
@@ -710,6 +720,7 @@ pub fn uci_loop() {
                     movestogo,
                     book: false,
                     movetime,
+                    last_capture_to,
                 };
                 // the bestmove reply is postponed by the Human Think Time act (0 = at once)
                 search_thread = Some(

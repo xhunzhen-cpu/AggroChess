@@ -105,11 +105,20 @@ the rhythm from the clock the GUI reports on every move).
 It is a pure act: **the move is always exactly the one the search picked**, printed later.
 The pause is calibrated to the position:
 
-* every move gets a small human "look" (~1 s in a 5-minute game),
-* wide and sharp positions add more (legal moves, captures and checks available),
-* a move the engine itself sees as a sacrifice gets the long Tal-style think,
-* per-move randomness so no two moves take the same time — the biggest tell of a bot is
-  the metronome.
+* **no-brainers are played instantly** — a single legal reply, a free piece snapped up, a
+  clean recapture on the square that was just taken, castling: a glance (~0.1–0.5 s), not a think;
+* **the opening is played from theory** — the first moves get a fraction of the normal
+  think, easing up to a normal think by move 8 (a long "I'm out of book" think only when
+  the position is genuinely sharp);
+* **a decisive advantage is converted briskly** (up +4 or more);
+* complexity is counted only where the search is deep enough to have an opinion: a
+  small-budget search (fixed 300 ms per move) wobbling between moves is *noise*, not
+  difficulty — so against lower-rated bots and in simple positions the replies stay fast.
+* every move otherwise gets a small human "look" (~1–3 s in a 5-minute game),
+* wide and genuinely sharp positions (deep-search instability, real tactics) think longer,
+* a move the engine itself sees as a sacrifice still gets the long Tal-style think,
+* per-move randomness with mean 1 (about a quarter of moves brisk, the rare 2–3x "really
+  sat on it" move) so no two games share a rhythm.
 
 In a 5+3 game with `Human Think Time` 100 the replies land in roughly 1–20 s; at 1+1 the
 same shape scales down to ~0.3–4 s.
@@ -117,10 +126,12 @@ same shape scales down to ~0.3–4 s.
 Fixed-time games (`go movetime`, the "time limit per move" mode some GUIs and bots use)
 act too. The engine has no clock to read there, so set `Human Base Minutes` to the game you
 are playing: a 5+0 platform game driven through a 300 ms-per-move search thinks in the
-5-minute rhythm (measured: 13–15 s on sharp positions, ~1–4 s on quiet ones). Without a
-frame the movetime itself implies one (movetime × 40), and the pause is additionally capped
-at **5× the movetime** so a plain fixed-time caller always gets a reply within fixed-time
-patience: a 300 ms movetime then pauses 0.1–1.5 s.
+5-minute rhythm. With the realism rules above, the same 300 ms rig measured (Think Time
+100): opening moves ~0.1–0.5 s, quiet middlegame ~1.5–2.5 s, a hard Najdorf tabiya ~5 s,
+and a sharp sacrificial position reaches the long Tal thinks — while a free queen is still
+snapped up in half a second. Without a frame the movetime itself implies one
+(movetime × 40), capped at **5× the movetime** so a plain fixed-time caller always gets a
+reply within fixed-time patience.
 
 **`Relay Hint` (ms, 0 = off)** — for hand-relay setups: you operate the engine by hand,
 playing its moves on another board or site (engine-vs-bot testing, exhibition relays). The
