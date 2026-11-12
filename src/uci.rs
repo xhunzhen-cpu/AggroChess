@@ -57,7 +57,7 @@ pub fn uci_loop() {
     let mut book: Option<Book> = None; // loaded lazily so `uci` answers instantly
     let own_book = true; // curated gambits always; Polyglot book used if BookPath exists
     let mut move_overhead: u64 = 50; // ms reserved per move for GUI / network lag
-    let mut history_hashes = vec![board.hash()];
+    let mut history_hashes = vec![search::rep_key(&board)];
     let mut prev_plies: usize = 0;
     // the destination square of the opponent's last move, when it captured something
     // (a clean recapture on that square is a no-brainer for the human timing)
@@ -506,7 +506,7 @@ pub fn uci_loop() {
                 crate::skill::new_game();
                 prev_plies = 0;
                 board = Board::default();
-                history_hashes = vec![board.hash()];
+                history_hashes = vec![search::rep_key(&board)];
                 search::clear_global_tt();
             }
             "position" => {
@@ -534,7 +534,7 @@ pub fn uci_loop() {
                         moves_index = Some(i + 1);
                     }
                 }
-                history_hashes.push(board.hash());
+                history_hashes.push(search::rep_key(&board));
                 // material (White's view) before each move, and who moved, for sacrifice tracking
                 let mut mat_hist = vec![sac_material(&board)];
                 let mut movers = Vec::new();
@@ -550,7 +550,7 @@ pub fn uci_loop() {
                                     None
                                 };
                                 board.play_unchecked(mv);
-                                history_hashes.push(board.hash());
+                                history_hashes.push(search::rep_key(&board));
                                 mat_hist.push(sac_material(&board));
                             }
                             _ => {

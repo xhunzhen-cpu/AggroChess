@@ -416,6 +416,30 @@ mod tests {
     }
 
     #[test]
+    fn repetition_ignores_non_capturable_ep() {
+        let _lock = crate::test_lock();
+        // FIDE: a position after a double push where nobody can capture en passant is the
+        // SAME position as the identical arrangement without the ep square. The repetition
+        // key must treat them as equal (cozy's hash does not: it always xors the ep file).
+        let with_ep: cozy_chess::Board =
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".parse().unwrap();
+        let no_ep: cozy_chess::Board =
+            "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 5".parse().unwrap();
+        assert_ne!(with_ep.hash(), no_ep.hash(), "cozy hashes differ (expected)");
+        assert_eq!(search::rep_key(&with_ep), search::rep_key(&no_ep), "fake ep must not change the repetition key");
+        // a real ep capture (exd6 e.p. is possible) IS a different position and must stay
+        let real_ep: cozy_chess::Board =
+            "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2".parse().unwrap();
+        let same_no_ep: cozy_chess::Board =
+            "rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2".parse().unwrap();
+        assert_ne!(
+            search::rep_key(&real_ep),
+            search::rep_key(&same_no_ep),
+            "a capturable ep square is a genuinely different position"
+        );
+    }
+
+    #[test]
     fn multithreaded_search_returns_move() {
         let _lock = crate::test_lock();
         let r = std::thread::Builder::new()

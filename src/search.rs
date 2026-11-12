@@ -386,6 +386,28 @@ fn quiet_gives_check(board: &Board, m: Move, piece: Piece, child_occ: u64) -> bo
 }
 
 /// Number of squares the king of `defender` could step to (capped at 3).
+/// Can a pawn of the side to move capture en passant on `file` right now?
+pub fn ep_capture_possible(board: &Board, file: cozy_chess::File) -> bool {
+    let stm = board.side_to_move();
+    let rank = if stm == Color::White {
+        cozy_chess::Rank::Sixth
+    } else {
+        cozy_chess::Rank::Third
+    };
+    let to = Square::new(file, rank);
+    let stm_pawns = board.pieces(Piece::Pawn) & board.colors(stm);
+    (cozy_chess::get_pawn_attacks(to, !stm) & stm_pawns).0 != 0
+}
+
+/// The repetition / draw key of a position: the position hash, with a *non-capturable*
+/// en-passant square ignored (FIDE: those are the same position; see `is_repetition`).
+pub fn rep_key(board: &Board) -> u64 {
+    match board.en_passant() {
+        Some(f) if !ep_capture_possible(board, f) => board.hash_without_ep(),
+        _ => board.hash(),
+    }
+}
+
 fn king_flights(board: &Board, defender: Color) -> u32 {
     let k = board.king(defender);
     let own = board.colors(defender).0;
@@ -1264,7 +1286,16 @@ impl Searcher {
     }
 
     fn is_repetition(&self, board: &Board) -> bool {
-        let h = board.hash();
+        // FIDE: positions that differ only in a non-capturable en-passant square are the
+        // SAME position. cozy-chess's hash always xors the ep file after a double push, so
+        // two passes through one position - one with a fake ep square, one without - hash
+        // differently and a real repetition was missed. The repetition key therefore
+        // ignores the ep bit whenever no pawn can actually capture on it (the capturable
+        // case is a genuinely different position; both hashes then already agree).
+        let caps_ep = board.en_passant().map_or(false, |f| {
+            ep_capture_possible(board, f)
+        });
+        let h = if caps_ep { board.hash() } else { board.hash_without_ep() };
         let n = self.hashes.len();
         let limit = (board.halfmove_clock() as usize).min(n);
         let mut i = 2;
@@ -1526,6 +1557,9 @@ impl Searcher {
         if deep()
             && !root
             && !pv_node_excluded(excluded)
+            // the 50-move rule: near the limit a claimed mate may be a draw instead - the
+            // ordinary search (which models the halfmove clock exactly) has the say
+            && board.halfmove_clock() <= 80
             && ply <= 12
             && depth >= MATE_PROBE_DEPTH.load(Ordering::Relaxed)
             && stm_is_root(board, self.root_color)
@@ -1596,7 +1630,7 @@ impl Searcher {
                     let r = 3 + depth / 3 + ((eval_est - beta) / 200).min(3);
                     self.stack[ply].mv = None;
                     self.stack[ply].cont = NO_CONT;
-                    self.hashes.push(hash);
+                    self.hashes.push(rep_key(board));
                     if self.nnue && self.acc_key[ply] == hash {
                         let (lo, hi) = self.acc.split_at_mut(ply + 1);
                         hi[0].v = lo[ply].v;
@@ -1826,7 +1860,7 @@ impl Searcher {
             self.push_acc(board, m, &child, ply);
             self.stack[ply].mv = Some(m);
             self.stack[ply].cont = pc12(stm, piece) * 64 + m.to as usize;
-            self.hashes.push(hash);
+            self.hashes.push(rep_key(board));
 
             // Sacrifice appetite (root only): a move aimed at the enemy king (a check,
             // landing in the king zone, or attacking it) that gives up material is judged
