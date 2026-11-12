@@ -473,6 +473,12 @@ pub fn curated_positions() -> usize {
 }
 
 fn seed() -> u64 {
+    // AGGRO_SEED makes the whole engine reproducible (skill choice *and* book picks);
+    // without it the wall clock is used, as before
+    let fixed = crate::skill::FIXED_SEED.load(std::sync::atomic::Ordering::Relaxed);
+    if fixed != 0 {
+        return fixed;
+    }
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_nanos() as u64)

@@ -179,6 +179,8 @@ pub fn set(s: Settings) {
 pub fn apply() {
     let d = derive(current());
     let r = Ordering::Relaxed;
+    // any settings change invalidates every cached personality value
+    eval::PERS_VERSION.fetch_add(1, r);
     eval::TRADE_K.store(d.trade_k, r);
     eval::ACTIVITY_K.store(d.activity_k, r);
     search::CONTEMPT.store(d.contempt, r);

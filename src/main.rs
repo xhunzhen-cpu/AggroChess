@@ -479,6 +479,7 @@ mod tests {
         eval::set_engine_color(Some(cozy_chess::Color::White));
         let with = |fen: &str, c: i32| {
             eval::KING_CLAMP.store(c, Ordering::Relaxed);
+            eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed);
             let b: Board = fen.parse().unwrap();
             eval::personality(&b)
         };

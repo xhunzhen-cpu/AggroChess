@@ -319,7 +319,8 @@ pub fn uci_loop() {
                         }
                         "x_clamp" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
-                                crate::eval::KING_CLAMP.store(v, Ordering::Relaxed);
+                                { crate::eval::KING_CLAMP.store(v, Ordering::Relaxed);
+                                  crate::eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed); }
                             }
                         }
                         "x_chain" => {
