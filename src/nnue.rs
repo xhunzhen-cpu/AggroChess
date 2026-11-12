@@ -34,6 +34,9 @@ pub struct Net {
 
 static NET: OnceLock<Net> = OnceLock::new();
 
+/// The exact byte length a valid net file must have (featuring `AGNN` + H + all weights).
+const NET_LEN: usize = 8 + 2 * (INPUTS * H + H + BUCKETS * 2 * H) + 4 * BUCKETS;
+
 fn parse(v: &[u8]) -> Net {
     assert_eq!(&v[0..4], b"AGNN", "bad network file");
     let h = u32::from_le_bytes(v[4..8].try_into().unwrap()) as usize;
@@ -47,14 +50,35 @@ fn parse(v: &[u8]) -> Net {
     let ft_w = rd(INPUTS * H);
     let ft_b = rd(H);
     let out_w = rd(BUCKETS * 2 * H);
-    let out_b = (0..BUCKETS).map(|i| i32::from_le_bytes(v[off + 4 * i..off + 4 * i + 4].try_into().unwrap())).collect();
+    let out_b = (0..BUCKETS)
+        .map(|i| {
+            let s = off + 4 * i;
+            assert!(s + 4 <= v.len(), "truncated network file");
+            i32::from_le_bytes(v[s..s + 4].try_into().unwrap())
+        })
+        .collect::<Vec<i32>>();
     Net { ft_w, ft_b, out_w, out_b }
 }
 
 #[inline]
 pub fn net() -> &'static Net {
     NET.get_or_init(|| match std::env::var("AGGRO_NET") {
-        Ok(f) => parse(&std::fs::read(f).expect("AGGRO_NET file")),
+        Ok(f) => {
+            let data = std::fs::read(&f).expect("AGGRO_NET file");
+            if data.len() != NET_LEN || data.get(0..4) != Some(b"AGNN") {
+                // a wrong or truncated external net falls back to the embedded one, loudly:
+                // the engine keeps working (panic=abort would kill the process instead)
+                #[cfg(test)]
+                panic!("AGGRO_NET file has the wrong size or header");
+                #[cfg(not(test))]
+                {
+                    eprintln!("AGGRO_NET file '{}' is invalid ({} bytes, expected {NET_LEN}); falling back to the embedded network", f, data.len());
+                    parse(NET_BYTES)
+                }
+            } else {
+                parse(&data)
+            }
+        }
         Err(_) => parse(NET_BYTES),
     })
 }
