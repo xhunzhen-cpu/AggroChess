@@ -473,10 +473,49 @@ pub fn curated_positions() -> usize {
 }
 
 fn seed() -> u64 {
+    // AGGRO_SEED makes the whole engine reproducible (skill choice *and* book picks);
+    // without it the wall clock is used, as before
+    let fixed = crate::skill::FIXED_SEED.load(std::sync::atomic::Ordering::Relaxed);
+    if fixed != 0 {
+        return fixed;
+    }
     SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(88172645463325252)
+}
+
+/// The FEN to look up in a Polyglot book. Polyglot hashes the en-passant file **only when
+/// an en-passant capture is actually possible** - that is how every .bin book was generated.
+/// `Board::to_string()` always prints the ep square after any double pawn push, so handing
+/// that FEN over as-is produces a hash that matches no book entry on every "fake" ep square
+/// (about one book position in sixteen, after 1.e4-style double pushes that nobody can
+/// capture on). This strips the square unless a pawn of the side to move really attacks it.
+pub fn polyglot_fen(board: &Board) -> String {
+    let mut fen = board.to_string();
+    if let Some(file) = board.en_passant() {
+        // the ep target square: rank 6 when White is to move (it captures "onto" it),
+        // rank 3 when Black is. A pawn of the side to move can actually capture on it
+        // exactly when one stands where an enemy pawn on the target would attack:
+        // get_pawn_attacks(target, !stm) are those squares.
+        let stm = board.side_to_move();
+        let rank = if stm == cozy_chess::Color::White {
+            cozy_chess::Rank::Sixth
+        } else {
+            cozy_chess::Rank::Third
+        };
+        let to = cozy_chess::Square::new(file, rank);
+        let attacker_squares = cozy_chess::get_pawn_attacks(to, !stm);
+        let stm_pawns = board.pieces(cozy_chess::Piece::Pawn) & board.colors(stm);
+        let ep_reachable = (attacker_squares & stm_pawns).0 != 0;
+        if !ep_reachable {
+            let parts: Vec<&str> = fen.split_whitespace().collect();
+            if parts.len() >= 4 {
+                fen = [parts[0], parts[1], parts[2], "-", &parts[4..].join(" ")].join(" ");
+            }
+        }
+    }
+    fen
 }
 
 impl Book {
@@ -528,7 +567,7 @@ impl Book {
 
         // 2. optional Polyglot book
         let book = self.book.as_ref()?;
-        let fen = board.to_string();
+        let fen = polyglot_fen(board);
         let entries = book.get_all_moves_from_fen(&fen);
         if entries.is_empty() {
             return None;
@@ -580,6 +619,26 @@ impl SimplePrng {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn polyglot_fen_strips_fake_ep_squares() {
+        let _lock = crate::test_lock();
+        // 1.e4 e6: black to move; no black pawn can capture on e3 (nothing is on d4/f4)
+        let b = Board::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", false).unwrap();
+        let fen = polyglot_fen(&b);
+        let parts: Vec<&str> = fen.split_whitespace().collect();
+        assert_eq!(parts[3], "-", "fake ep must be stripped, got {}", parts[3]);
+        // a real en passant: white pawn on e5, black just double-pushed d7-d5, exd6 e.p. is legal
+        let b = Board::from_fen("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2", false).unwrap();
+        let fen = polyglot_fen(&b);
+        let parts: Vec<&str> = fen.split_whitespace().collect();
+        assert_eq!(parts[3], "d6", "real ep must be kept, got {}", parts[3]);
+        // no ep at all: untouched
+        let b = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", false).unwrap();
+        let fen = polyglot_fen(&b);
+        let parts: Vec<&str> = fen.split_whitespace().collect();
+        assert_eq!(parts[3], "-");
+    }
 
     #[test]
     fn every_book_line_is_legal() {

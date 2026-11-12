@@ -14,6 +14,11 @@ const SEARCH_STACK: usize = 64 * 1024 * 1024;
 // ---------------------------------------------------------------------------
 static LOG: std::sync::Mutex<Option<std::fs::File>> = std::sync::Mutex::new(None);
 static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+/// Ponder state: 0 = not pondering, 1 = pondering (waiting for `ponderhit`/`stop`),
+/// 2 = `ponderhit` seen - the ponder search stops and the real clocked search takes over.
+pub static PONDER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+/// The clocked limits of the `go ponder` in flight, applied when `ponderhit` arrives.
+static PONDER_LIMITS: std::sync::RwLock<Option<search::Limits>> = std::sync::RwLock::new(None);
 
 fn init_log() {
     START.get_or_init(std::time::Instant::now);
@@ -52,7 +57,7 @@ pub fn uci_loop() {
     let mut book: Option<Book> = None; // loaded lazily so `uci` answers instantly
     let own_book = true; // curated gambits always; Polyglot book used if BookPath exists
     let mut move_overhead: u64 = 50; // ms reserved per move for GUI / network lag
-    let mut history_hashes = vec![board.hash()];
+    let mut history_hashes = vec![search::rep_key(&board)];
     let mut prev_plies: usize = 0;
     // the destination square of the opponent's last move, when it captured something
     // (a clean recapture on that square is a no-brainer for the human timing)
@@ -100,9 +105,19 @@ pub fn uci_loop() {
                 let name_pos = tokens.iter().position(|&t| t == "name");
                 let value_pos = tokens.iter().position(|&t| t == "value");
                 if let Some(np) = name_pos {
-                    let name_end = value_pos.unwrap_or(tokens.len());
-                    let name = tokens[np + 1..name_end].join(" ").to_lowercase();
-                    let value = value_pos.map(|vp| tokens[vp + 1..].join(" ")).unwrap_or_default();
+                    // a GUI may send `setoption value V name N` (value first): be robust,
+                    // panic=abort would otherwise kill the whole engine on a bad ordering
+                    let name_end = match value_pos {
+                        Some(vp) if vp > np => vp,
+                        _ => tokens.len(),
+                    };
+                    let (name, value) = if name_end > np + 1 {
+                        (tokens[np + 1..name_end].join(" ").to_lowercase(), value_pos.map(|vp| tokens[vp + 1..].join(" ")).unwrap_or_default())
+                    } else {
+                        // name is where the value would start (or nothing): the line is
+                        // malformed; the value (if any) still applies to the known option
+                        (String::new(), String::new())
+                    };
                     // The advertised options are user settings. Everything else (swindle mode,
                     // the tuning knobs) is fixed; the knobs answer only in a development run
                     // (AGGRO_DEV set), for testing.
@@ -304,7 +319,8 @@ pub fn uci_loop() {
                         }
                         "x_clamp" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
-                                crate::eval::KING_CLAMP.store(v, Ordering::Relaxed);
+                                { crate::eval::KING_CLAMP.store(v, Ordering::Relaxed);
+                                  crate::eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed); }
                             }
                         }
                         "x_chain" => {
@@ -494,12 +510,14 @@ pub fn uci_loop() {
             }
             "ucinewgame" => {
                 stop_and_join(&stop_flag, &mut search_thread);
+                PONDER.store(0, Ordering::SeqCst);
+                *PONDER_LIMITS.write().unwrap() = None;
                 search::LAST_SCORE.store(0, Ordering::Relaxed);
                 search::LAST_OBJ.store(0, Ordering::Relaxed);
                 crate::skill::new_game();
                 prev_plies = 0;
                 board = Board::default();
-                history_hashes = vec![board.hash()];
+                history_hashes = vec![search::rep_key(&board)];
                 search::clear_global_tt();
             }
             "position" => {
@@ -527,7 +545,7 @@ pub fn uci_loop() {
                         moves_index = Some(i + 1);
                     }
                 }
-                history_hashes.push(board.hash());
+                history_hashes.push(search::rep_key(&board));
                 // material (White's view) before each move, and who moved, for sacrifice tracking
                 let mut mat_hist = vec![sac_material(&board)];
                 let mut movers = Vec::new();
@@ -543,7 +561,7 @@ pub fn uci_loop() {
                                     None
                                 };
                                 board.play_unchecked(mv);
-                                history_hashes.push(board.hash());
+                                history_hashes.push(search::rep_key(&board));
                                 mat_hist.push(sac_material(&board));
                             }
                             _ => {
@@ -584,12 +602,18 @@ pub fn uci_loop() {
                 let mut movestogo: Option<u64> = None;
                 let mut movetime = None;
                 let mut infinite = false;
+                let mut ponder = false;
                 let mut searchmoves: Vec<cozy_chess::Move> = Vec::new();
                 let mut i = 1;
                 while i < tokens.len() {
                     let next = tokens.get(i + 1).copied().unwrap_or("");
                     match tokens[i] {
                         "infinite" => infinite = true,
+                        "ponder" => {
+                            // the GUI pondered for us: search open-ended until `ponderhit`
+                            // (which hands the real clock over) or `stop`
+                            ponder = true;
+                        }
                         "depth" => {
                             limits.depth = next.parse().ok();
                             i += 1;
@@ -645,7 +669,7 @@ pub fn uci_loop() {
                 // (Skill Level) leaves its book after a level-dependent number of plies.
                 let game_ply = 2 * (board.fullmove_number().max(1) as u32 - 1) + (board.side_to_move() == Color::Black) as u32;
                 let book_ok = crate::skill::params().map_or(true, |w| w.book_plies == 0 || game_ply < w.book_plies);
-                if own_book && book_ok && limits.depth.is_none() && limits.nodes.is_none() && !infinite && searchmoves.is_empty() {
+                if own_book && book_ok && limits.depth.is_none() && limits.nodes.is_none() && !infinite && !ponder && searchmoves.is_empty() {
                     if book.is_none() {
                         book = Some(Book::new(&book_path));
                     }
@@ -672,10 +696,33 @@ pub fn uci_loop() {
                         let mtg = movestogo.unwrap_or(30).clamp(1, 50);
                         let mut soft = avail / mtg + inc * 3 / 4;
                         soft = soft.min(avail / 4);
+                        // the last move before the time control gets a fresh clock right
+                        // after it: plan most of this one, keep only the usual emergency
+                        // reserve (a twelfth). `movestogo 1` must not think with a quarter
+                        // of the clock while the whole game rides on this move.
+                        if mtg == 1 {
+                            soft = (avail + inc * 3 / 4) * 11 / 12;
+                        }
                         let hard = (soft * 4).min(avail / 2).max(soft);
+                        let hard = if mtg == 1 { (avail + inc * 3 / 4).min(hard * 2) } else { hard };
                         limits.soft = Some(Duration::from_millis(soft.max(1)));
                         limits.hard = Some(Duration::from_millis(hard.max(1)));
                     }
+                }
+
+                // Ponder: the GUI guessed the opponent's reply and wants us to think ahead
+                // about *our* next move. Those clock numbers belong to the position on the
+                // board, which only becomes current at `ponderhit` - until then the search
+                // is open-ended and emits nothing. At `ponderhit` the real limits take
+                // over on a hash table that is already warm with the ponder work.
+                if ponder {
+                    PONDER.store(1, Ordering::SeqCst);
+                    *PONDER_LIMITS.write().unwrap() = Some(limits);
+                    limits.soft = None;
+                    limits.hard = None;
+                    infinite = true; // no bestmove until the GUI decides (ponderhit/stop)
+                } else {
+                    PONDER.store(0, Ordering::SeqCst);
                 }
 
                 let search_board = board.clone();
@@ -723,15 +770,68 @@ pub fn uci_loop() {
                     last_capture_to,
                 };
                 // the bestmove reply is postponed by the Human Think Time act (0 = at once)
-                search_thread = Some(
-                    std::thread::Builder::new()
-                        .stack_size(SEARCH_STACK)
-                        .spawn(move || {
+                let pondering = ponder;
+                let fallback_board = board.clone();
+                let spawn_result = std::thread::Builder::new()
+                    .stack_size(SEARCH_STACK)
+                    .spawn(move || {
+                            // Ponder: think ahead open-ended in a thread of its own while the
+                            // GUI makes up its mind. `ponderhit` converts that work into the
+                            // real clocked search on the hash table the ponder just warmed;
+                            // `stop` wants the move now (from whatever the ponder reached).
+                            if pondering {
+                                let ponder_stop = Arc::new(AtomicBool::new(false));
+                                let pboard = search_board.clone();
+                                let phist = hist.clone();
+                                let pstop = Arc::clone(&ponder_stop);
+                                let ponderer = std::thread::Builder::new()
+                                    .stack_size(SEARCH_STACK)
+                                    .spawn(move || {
+                                        // open-ended: think as long as the GUI lets us
+                                        let lim = search::Limits { depth: None, soft: None, hard: None, nodes: None };
+                                        let (b, _) = search::search_position(&pboard, &phist, lim, pstop, true);
+                                        b
+                                    })
+                                    .expect("failed to spawn ponder thread");
+                                loop {
+                                    if PONDER.load(Ordering::SeqCst) != 1 {
+                                        break;
+                                    }
+                                    std::thread::sleep(Duration::from_millis(2));
+                                }
+                                // either ponderhit (2) or stop (0): end the ponder search
+                                ponder_stop.store(true, Ordering::SeqCst);
+                                search::EXTERNAL_STOP.store(true, Ordering::SeqCst);
+                                let ponder_best = ponderer.join().ok().flatten();
+                                if PONDER.load(Ordering::SeqCst) == 2 {
+                                    // ponderhit: the position is real now; search it again
+                                    // under the stored clock (the shared TT is warm)
+                                    search::EXTERNAL_STOP.store(false, Ordering::SeqCst);
+                                    stop_clone.store(false, Ordering::SeqCst);
+                                    let limits_run = PONDER_LIMITS.read().unwrap().clone().unwrap_or(limits);
+                                    let (best, _) = search::search_position(&search_board, &hist, limits_run, Arc::clone(&stop_clone), true);
+                                    match best {
+                                        Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&search_board, mv)),
+                                        None => out!("bestmove 0000"),
+                                    }
+                                    let _ = io::stdout().flush();
+                                    return;
+                                }
+                                // stopped during ponder: answer with what the ponder has
+                                search::EXTERNAL_STOP.store(false, Ordering::SeqCst);
+                                stop_clone.store(false, Ordering::SeqCst);
+                                match ponder_best {
+                                    Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&search_board, mv)),
+                                    None => out!("bestmove 0000"),
+                                }
+                                let _ = io::stdout().flush();
+                                return;
+                            }
                             let t0 = std::time::Instant::now();
-                            let (best, _) = search::search_position(&search_board, &hist, limits, stop_clone, true);
+                            let (best, _) = search::search_position(&search_board, &hist, limits, Arc::clone(&stop_clone), true);
                             let think_ms = t0.elapsed().as_millis();
-                            // `go infinite`: the GUI decides when the search is over, even when the
-                            // search itself has finished (a mate found, a Skill Level budget spent)
+                            // `go infinite`: the GUI decides when the search is over, even when
+                            // the search itself has finished (a mate found, a spent budget)
                             while wait_for_stop && !search::EXTERNAL_STOP.load(Ordering::SeqCst) {
                                 std::thread::sleep(Duration::from_millis(2));
                             }
@@ -767,14 +867,45 @@ pub fn uci_loop() {
                                 None => out!("bestmove 0000"),
                             }
                             let _ = io::stdout().flush();
-                        })
-                        .expect("failed to spawn search thread"),
-                );
+                        });
+                    match spawn_result {
+                        Ok(handle) => search_thread = Some(handle),
+                        Err(e) => {
+                            // panic=abort would kill the engine for the whole rest of the
+                            // session: a failed spawn (thread/memory exhaustion) must not.
+                            // Answer at once from the first legal move so the game continues.
+                            let mut first: Option<cozy_chess::Move> = None;
+                            fallback_board.generate_moves(|mvs| {
+                                if first.is_none() {
+                                    first = mvs.into_iter().next();
+                                }
+                                false
+                            });
+                            out!("info string search thread unavailable: {} - playing a legal move", e);
+                            match first {
+                                Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&fallback_board, mv)),
+                                None => out!("bestmove 0000"),
+                            }
+                            let _ = io::stdout().flush();
+                        }
+                    }
+                }
+            "ponderhit" => {
+                // the pondered position became reality: hand the stored clock over and
+                // release the waiting search. The ponder search runs open-ended; this is
+                // the transition to the timed one.
+                if PONDER.load(Ordering::SeqCst) == 1 {
+                    PONDER.store(2, Ordering::SeqCst);
+                    search::EXTERNAL_STOP.store(true, Ordering::SeqCst);
+                    stop_flag.store(true, Ordering::SeqCst);
+                }
             }
             "stop" => {
+                PONDER.store(0, Ordering::SeqCst);
                 stop_and_join(&stop_flag, &mut search_thread);
             }
             "quit" => {
+                PONDER.store(0, Ordering::SeqCst);
                 stop_and_join(&stop_flag, &mut search_thread);
                 break;
             }

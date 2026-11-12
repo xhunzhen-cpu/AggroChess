@@ -53,13 +53,20 @@ pub static ENGINE_COLOR: AtomicU8 = AtomicU8::new(2);
 pub static NOISE: AtomicI32 = AtomicI32::new(0);
 pub static NOISE_SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
+/// Version of the personality inputs: bumped by every change of the personality weights
+/// or the engine's side, so a cached personality value is never served for stale settings
+/// (the brilliancy look, for instance, flips the engine side mid-search).
+pub static PERS_VERSION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
 pub fn set_engine_color(color: Option<Color>) {
     let v = match color {
         Some(Color::White) => 0,
         Some(Color::Black) => 1,
         None => 2,
     };
-    ENGINE_COLOR.store(v, Ordering::Relaxed);
+    if ENGINE_COLOR.swap(v, Ordering::Relaxed) != v {
+        PERS_VERSION.fetch_add(1, Ordering::Relaxed);
+    }
 }
 
 fn engine_color() -> Option<Color> {
@@ -466,11 +473,47 @@ pub fn personality_active() -> bool {
 /// Just the personality layer, from the side to move's point of view: the extra king danger
 /// the engine inflicts beyond the objective amount, trade aversion, pieces aimed at the king.
 /// Added on top of the NNUE evaluation.
+///
+/// The layer is position-pure (given the settings and the engine's side, one board has one
+/// value), and the search asks for it at every node - so a small direct-mapped cache
+/// keyed by (position hash, settings version) returns the same value in the many positions
+/// quiescence and the hash table keep coming back to.
 pub fn personality(board: &Board) -> i32 {
     if !personality_active() {
         return 0;
     }
-    compute(board, false).1
+    const PERS_CACHE: usize = 1 << 16;
+    #[derive(Clone, Copy)]
+    struct PersEntry {
+        key: u64,
+        val: i32,
+    }
+    thread_local! {
+        static PERS_CACHE_TABLE: std::cell::RefCell<Vec<PersEntry>> =
+            std::cell::RefCell::new(vec![PersEntry { key: 0, val: 0 }; PERS_CACHE]);
+    }
+    let ver = PERS_VERSION.load(Ordering::Relaxed);
+    // the version rides the key's top bits; the hash is a full 64-bit zobrist
+    let key = (board.hash() ^ (ver.rotate_left(1)) ^ 0x51ed_2701_2137_7ac1).rotate_left(17);
+    let slot = (key >> 48) as usize;
+    let hit = PERS_CACHE_TABLE.with(|c| {
+        let t = c.borrow();
+        let e = &t[slot];
+        if e.key == key {
+            Some(e.val)
+        } else {
+            None
+        }
+    });
+    if let Some(v) = hit {
+        return v;
+    }
+    let v = compute(board, false).1;
+    PERS_CACHE_TABLE.with(|c| {
+        let mut t = c.borrow_mut();
+        t[slot] = PersEntry { key, val: v };
+    });
+    v
 }
 
 /// Skill Level noise (zero at full strength).

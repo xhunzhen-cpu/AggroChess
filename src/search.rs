@@ -386,6 +386,28 @@ fn quiet_gives_check(board: &Board, m: Move, piece: Piece, child_occ: u64) -> bo
 }
 
 /// Number of squares the king of `defender` could step to (capped at 3).
+/// Can a pawn of the side to move capture en passant on `file` right now?
+pub fn ep_capture_possible(board: &Board, file: cozy_chess::File) -> bool {
+    let stm = board.side_to_move();
+    let rank = if stm == Color::White {
+        cozy_chess::Rank::Sixth
+    } else {
+        cozy_chess::Rank::Third
+    };
+    let to = Square::new(file, rank);
+    let stm_pawns = board.pieces(Piece::Pawn) & board.colors(stm);
+    (cozy_chess::get_pawn_attacks(to, !stm) & stm_pawns).0 != 0
+}
+
+/// The repetition / draw key of a position: the position hash, with a *non-capturable*
+/// en-passant square ignored (FIDE: those are the same position; see `is_repetition`).
+pub fn rep_key(board: &Board) -> u64 {
+    match board.en_passant() {
+        Some(f) if !ep_capture_possible(board, f) => board.hash_without_ep(),
+        _ => board.hash(),
+    }
+}
+
 fn king_flights(board: &Board, defender: Color) -> u32 {
     let k = board.king(defender);
     let own = board.colors(defender).0;
@@ -1264,7 +1286,16 @@ impl Searcher {
     }
 
     fn is_repetition(&self, board: &Board) -> bool {
-        let h = board.hash();
+        // FIDE: positions that differ only in a non-capturable en-passant square are the
+        // SAME position. cozy-chess's hash always xors the ep file after a double push, so
+        // two passes through one position - one with a fake ep square, one without - hash
+        // differently and a real repetition was missed. The repetition key therefore
+        // ignores the ep bit whenever no pawn can actually capture on it (the capturable
+        // case is a genuinely different position; both hashes then already agree).
+        let caps_ep = board.en_passant().map_or(false, |f| {
+            ep_capture_possible(board, f)
+        });
+        let h = if caps_ep { board.hash() } else { board.hash_without_ep() };
         let n = self.hashes.len();
         let limit = (board.halfmove_clock() as usize).min(n);
         let mut i = 2;
@@ -1526,6 +1557,9 @@ impl Searcher {
         if deep()
             && !root
             && !pv_node_excluded(excluded)
+            // the 50-move rule: near the limit a claimed mate may be a draw instead - the
+            // ordinary search (which models the halfmove clock exactly) has the say
+            && board.halfmove_clock() <= 80
             && ply <= 12
             && depth >= MATE_PROBE_DEPTH.load(Ordering::Relaxed)
             && stm_is_root(board, self.root_color)
@@ -1596,7 +1630,7 @@ impl Searcher {
                     let r = 3 + depth / 3 + ((eval_est - beta) / 200).min(3);
                     self.stack[ply].mv = None;
                     self.stack[ply].cont = NO_CONT;
-                    self.hashes.push(hash);
+                    self.hashes.push(rep_key(board));
                     if self.nnue && self.acc_key[ply] == hash {
                         let (lo, hi) = self.acc.split_at_mut(ply + 1);
                         hi[0].v = lo[ply].v;
@@ -1826,7 +1860,7 @@ impl Searcher {
             self.push_acc(board, m, &child, ply);
             self.stack[ply].mv = Some(m);
             self.stack[ply].cont = pc12(stm, piece) * 64 + m.to as usize;
-            self.hashes.push(hash);
+            self.hashes.push(rep_key(board));
 
             // Sacrifice appetite (root only): a move aimed at the enemy king (a check,
             // landing in the king zone, or attacking it) that gives up material is judged
@@ -2728,10 +2762,24 @@ fn search_position_inner(
             s.check_mask = 63; // small node budgets are kept to within a few dozen nodes
         }
     }
+    // The same fine-grained node counting for the GUI's own `go nodes` at full strength:
+    // a 100-node limit must overshoot by a few dozen nodes, not by a thousand (the search
+    // only checks the budget every check_mask+1 nodes). No effect without a node limit.
+    if let Some(n) = limits.nodes {
+        if n < 100_000 && s.check_mask > 15 {
+            s.check_mask = match n {
+                0..=15 => 3,
+                16..=63 => 15,
+                _ => 63,
+            };
+        }
+    }
 
     // ---- Tal's forcing lines (deep mode, in trouble) ----
+    // A forced reply (exactly one legal move) is not thought about at all: no priming budget
+    // is spent on it - the engine answers at once, like every strong engine.
     let mut quick_score: Option<i32> = None;
-    if deep_mode && PRIME.load(Ordering::Relaxed) && full && ROOT_FILTER.lock().unwrap().is_empty() {
+    if deep_mode && PRIME.load(Ordering::Relaxed) && full && root_moves.len() > 1 && ROOT_FILTER.lock().unwrap().is_empty() {
         let base = full_hard;
         if let Some(h) = base {
             quick_score = prime_forcing_lines(board, &s.hashes, &tt, sac, h * PRIME_PCT.load(Ordering::Relaxed).clamp(0, 60) as u32 / 100, print_info);
@@ -2772,8 +2820,13 @@ fn search_position_inner(
         let tt = Arc::clone(&tt);
         let stop = Arc::clone(&stop);
         let nodes = Arc::clone(&nodes);
-        let builder = std::thread::Builder::new().stack_size(64 * 1024 * 1024);
-        handles.push(builder.spawn(move || {
+        // Helper stacks: 64 MiB each would reserve 8 GiB of stack at Threads=128. The
+        // search recursion uses MAX_PLY (128) frames of a few KB - 16 MiB is generous.
+        // And a helper that cannot be spawned (out of memory, thread limit) is *skipped*,
+        // not fatal: the main search alone still plays the move (panic=abort would
+        // otherwise kill the engine mid-game).
+        let builder = std::thread::Builder::new().stack_size(16 * 1024 * 1024);
+        match builder.spawn(move || {
             let mut s = Searcher::new(tt, stop, nodes, false);
             s.sac = sac;
             s.hashes = h;
@@ -2785,7 +2838,15 @@ fn search_position_inner(
                 score = aspiration(&mut s, &b, d, score);
                 d += 1;
             }
-        }).expect("failed to spawn helper thread"));
+        }) {
+            Ok(handle) => handles.push(handle),
+            Err(e) => {
+                // keep Lazy-SMP alive with one fewer helper; the engine still moves
+                if print_info && std::env::var("AGGRO_LOOKDBG").is_ok() {
+                    out!("info string helper thread {} skipped: {}", t, e);
+                }
+            }
+        }
     }
 
     let root_filter_now = ROOT_FILTER.lock().unwrap().clone();
@@ -2834,6 +2895,7 @@ fn search_position_inner(
     // smallest budget plays a move it has actually looked at
     let node_limit = s.node_limit.take();
     let mut clean_depth1 = false;
+    let mut iter_start = std::time::Duration::ZERO;
 
     TAL_MODE.store(false, Ordering::Relaxed);
     for depth in 1..=max_depth {
@@ -2962,6 +3024,9 @@ fn search_position_inner(
             }
         }
         prev_best = best_move;
+        // how long this finished iteration took (for the do-not-start-a-doomed-iteration rule)
+        let iter_time = elapsed.saturating_sub(iter_start);
+        iter_start = elapsed;
         if let Some(soft) = limits.soft {
             let mut factor = match stability {
                 0 => 1.6,
@@ -2978,6 +3043,19 @@ fn search_position_inner(
             }
             if elapsed.as_secs_f64() > soft.as_secs_f64() * factor {
                 break;
+            }
+            // Do not start an iteration that cannot finish: the next depth costs about
+            // 1.4-2.0x the last iteration (branching factor); if the projection already
+            // runs past the hard limit, the iteration would be aborted half-way and the
+            // clock spent on a partial result. Waiting is better than burning it.
+            if let Some(hard) = limits.hard {
+                if depth >= 4 {
+                    // EBNF through 3 plies is erratic (TT warm-up); only trust the trend later
+                    let projected = elapsed + iter_time.mul_f64(1.5);
+                    if projected > hard.mul_f64(0.95) {
+                        break;
+                    }
+                }
             }
         }
         prev_score = best_score;
