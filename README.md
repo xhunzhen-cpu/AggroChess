@@ -82,19 +82,34 @@ The scores the engine reports **exclude the sacrifice bonus** (AggroChess 4.5.0 
 
 ## Brilliance
 
-New in 5.1. After the main search of a timed move at Skill Level 21, the engine sorts the legal moves into *sacrifices* (the moved piece is lost by static exchange: a minor piece for pawns, the exchange or more; or the move leaves something worth more than two pawns en prise) and the rest. It then searches the main choice (or its group) and the other group to the same depth with the **neutral evaluation** (personality off, no sacrifice bonus, no contempt) on a fresh hash table, using about 30% of the move's time. The neutral evaluation matters: the attacking personality is optimistic about its own attacks, which is exactly what makes a sacrifice unsound, so it does not get to judge the sacrifice.
+New in 5.1, extended in 5.4. After the main search of a timed move, the engine sorts the legal moves into *brilliant* candidates and the rest. A candidate is
 
-* the main search chose a quiet move, and the best sacrifice is at most *margin* below it and not losing (above *floor*) → **the sacrifice is played**: a sound sacrifice of the kind chess.com marks as "brilliant";
-* the main search chose a sacrifice worth less than +3 pawns, and the best safe move is more than *veto* above it → **the safe move is played**: the sacrifice was unsound.
+* a **material sacrifice** — the moved piece is lost by static exchange (a minor piece for pawns, the exchange or more) or the move leaves something worth more than two pawns en prise. This covers the Tal/Qxh7+ kind, capturing (`Rxh7+!`) or quiet (`Qh6!!`), the exchange sacrifice, and the **desperado** (a capture whose piece cannot be saved);
+* a **knight, bishop or rook promotion**. The ordinary search ranks these last and the quiescence search never looks at them, so the brilliancy look is the only thing that can ever play one — Saavedra's `1.c8=R!!` is the test position.
 
-| Brilliance | margin | floor | veto |
-|---|---|---|---|
-| 25 | 5 cp | +25 cp | 238 cp |
-| 50 | 20 cp | 0 | 175 cp |
-| 75 | 45 cp | −25 cp | 112 cp |
-| **100** (default) | 80 cp | −50 cp | 50 cp |
+The look then searches the candidate group and the best ordinary move to the same depth with the **neutral evaluation** (personality off, no sacrifice bonus, no contempt) on a fresh hash table. The neutral evaluation matters: the attacking personality is optimistic about its own attacks, which is exactly what makes a sacrifice unsound, so it does not get to judge the sacrifice.
 
-The engine prints `info string brilliancy look: …` for each check. The look runs only in timed games at full strength (not with `go depth`, `go nodes`, `go infinite`, MultiPV > 1 or Skill Level < 21), so the Classic preset with `go depth` still matches 4.5.0 exactly; for 4.5.0 behaviour in games, set Brilliance to 0 as well.
+* the search chose a quiet move, and the best sacrifice is at most *margin* below it and not losing (above *floor*) → **the sacrifice is played**: a sound sacrifice of the kind chess.com marks as "brilliant";
+* the search chose a sacrifice worth less than +3 pawns, and the best safe move is more than *veto* above it → **the safe move is played**: the sacrifice was unsound;
+* a **underpromotion** rates no worse than the best ordinary move (with a little more room when it checks) → **the underpromotion is played**;
+* in a bad position, the search's second-best candidate is far below its best → that best move is the **only move that holds**, and it is played (`info string brilliant defence: …`).
+
+| Brilliance | share of the move the look may spend | margin | floor | veto |
+|---|---|---|---|---|
+| 0 | — (off) | — | — | — |
+| 25 | 1/4 of 30% | 5 cp | +25 cp | 238 cp |
+| 50 | 1/2 of 30% | 20 cp | 0 | 175 cp |
+| 75 | 3/4 of 30% | 45 cp | −25 cp | 112 cp |
+| **100** (default) | 30% | 80 cp | −50 cp | 50 cp |
+
+The engine prints `info string brilliancy look: …` for each check. At full strength the look runs only in timed games (not with `go depth`, `go nodes`, `go infinite`, MultiPV > 1), so the Classic preset with `go depth` still matches 4.5.0 exactly; for 4.5.0 behaviour in games, set Brilliance to 0 as well.
+
+### At every Skill Level
+
+From 5.4 the look runs at Skill Levels 1–20 too, scaled by `Brilliance`, with two deliberate differences:
+
+* **it gets its own verification budget.** A weakened engine's own budget cannot judge a sacrifice — level 5 searches about 600 nodes at depth 4, and Saavedra's stalemate point is nine plies away. The look therefore runs a separate search of about 30 000 nodes at most (a few milliseconds), *not* taken from the level's allowance, so the level's own move and its measured strength are untouched. With Brilliance 0 the level behaves exactly as before.
+* **it may only promote a brilliancy, never demote the level's own move.** Measured: at level 8 a depth-3 neutral look rejected the Greek gift (`Bxh7+`), which a look that shallow has no right to do. So at a Skill Level the look plays a sacrifice or underpromotion the neutral search endorses, but never vetoes the level's choice. The only-move defence is the exception, and it is not a judgement call: when the second-best candidate is far below the best in a bad position, that gap *is* the proof that the first move is the only one that holds.
 
 ### Measured effect
 
@@ -108,7 +123,7 @@ Measured 2026-11-09, 10+0.1, one thread, same openings and colours (seed 1), ana
 
 Head-to-head, 5.1 (Brilliance 75) against 5.0: **+42 =14 −24, 61.3%, about +80 Elo** (80 games). The brilliancy check removes unsound sacrifices, which makes the engine both stronger and more often *right* when it sacrifices, and it plays about twice as many sound, brilliant-style sacrifices as 5.0.
 
-What it cannot do is produce several sound sacrifices *every game*: a sacrifice is only sound when the position offers one, and in these games that was the case about once every three games. The counter also misses sacrifices the opponent declined (a piece left en prise that is never taken), which chess.com still marks as brilliant. These are small samples (40–60 games) with wide error bars. The Skill Level ratings below were measured with 5.0, so Skill Level 21 is now somewhat stronger than its listed rating; levels 1–20 are unchanged because the look only runs at level 21.
+What it cannot do is produce several sound sacrifices *every game*: a sacrifice is only sound when the position offers one, and in these games that was the case about once every three games. The counter also misses sacrifices the opponent declined (a piece left en prise that is never taken), which chess.com still marks as brilliant. These are small samples (40–60 games) with wide error bars. The Skill Level ratings below were measured with 5.0, so Skill Level 21 is now somewhat stronger than its listed rating. From 5.4 the brilliancy look also runs at levels 1–20, on its own small verification budget (see [At every Skill Level](#at-every-skill-level)): it can add a brilliant move the level could see, but it never changes the level's own search or vetoes its choice, so the ladder below keeps its shape.
 
 ## Human think time
 

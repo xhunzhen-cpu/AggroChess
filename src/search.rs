@@ -3531,6 +3531,42 @@ fn search_position_inner(
         }
     }
 
+    // ---- only-move defence ----
+    // The position is bad and exactly one move holds it: that move is brilliant in the same
+    // sense chess.com means ("finding the only good move"), and it is exactly what a weakened
+    // engine's short candidate list cannot identify - at Skill Level 1-20 the line list holds
+    // only `multipv` (2-8) moves, and the level's cp-loss allowance happily plays a losing one.
+    // `lines` is sorted best first, so the gap between the first and second line is the
+    // evidence that the first move is the only one that holds *among the moves the level
+    // searched* (its MultiPV candidates - 2 to 8 of them). When the level's own choice is not
+    // that move, the defence takes over.
+    if !full && bril_ready && !strategy_swap && lines.len() >= 2 && best_score.abs() < MATE_BOUND {
+        let b = brilliance;
+        let trouble = -100 - b / 2; // -150 at Brilliance 100: clearly worse, not yet lost
+        let gap = 100 + b / 2; // 150 cp: the second line is not "nearly as good"
+        let hold = -600 - b; // -700: even a lost position has its only defensive resource
+        let obj = |i: usize| lines[i].score - lines[i].sb;
+        if obj(0) <= trouble && obj(0) >= hold && obj(0) - obj(1) >= gap && lines[0].mv != best_move.unwrap_or(lines[0].mv) {
+            if print_info {
+                out!(
+                    "info string brilliant defence: {} is the only move that holds ({} vs {} for the second line)",
+                    cozy_chess::util::display_uci_move(board, lines[0].mv),
+                    obj(0),
+                    obj(1)
+                );
+            }
+            strategy_swap = true;
+            let l = &lines[0];
+            best_move = Some(l.mv);
+            best_score = l.score;
+            best_sb = l.sb;
+            *LAST_PV.lock().unwrap() = l.pv.clone();
+            if print_info {
+                out!("info depth {} score {} pv {}", done_depth, format_score(shown_score(l.score, l.sb)), pv_string(board, &l.pv));
+            }
+        }
+    }
+
     // ---- Human Style: the natural-move taste ----
     // Among near-equal moves, prefer the one a human reaches for. Only the search's own
     // finished candidates take part, only when their scores are within a small tactical
