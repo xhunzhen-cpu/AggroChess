@@ -14,9 +14,21 @@ the only win. The brilliancy look now nominates knight, bishop and rook promotio
 judges them on the neutral evaluation (`SacParams::neutral()`, full-window, root
 reductions off via the new `Searcher::exact_root`).
 
-Saavedra's position (`8/2P5/8/8/3r4/8/2K5/k7 w - - 0 5`) is the test: **`1.c8=R!!`** is
-played at Brilliance 100 at *every* level from 1 to 21, and `c8=Q` at Brilliance 0 — the
-behaviour is driven by the option, not by the level.
+Saavedra's position (`8/2P5/8/8/3r4/8/2K5/k7 w - - 0 5`) is the test. At 300 ms with Brilliance
+100, `1.c8=R!!` is played at every level from 1 to 21. At Brilliance 0 the behaviour splits, and
+the honest statement is smaller than "`c8=Q` at every level":
+
+| level | Brilliance 100 | Brilliance 0 |
+|---|---|---|
+| 10–21 | `c8=R` | **`c8=R`** — the ordinary search finds it unaided |
+| 7–9, 1–6 | `c8=R` (by the look) | **`c8=Q`** |
+
+Measured at 300 ms, boundary at level 9/10; the ordinary search is strong enough to see the rook
+promotion itself at 300 ms and above (and at 3 s, unchanged). So Brilliance 0 does not force
+`c8=Q` at the top levels — it only removes the *look*. The level-dependent part is real: without
+the look, levels 1–9 miss it. The look is what makes the behaviour level-independent. (At the
+top levels the look prints nothing because it has nothing to add: the ordinary search already
+plays the underpromotion.)
 
 ## Brilliant play at Skill Levels 1–20 (new)
 
@@ -76,7 +88,7 @@ implementation:
 | `ucitest` | 43/43 | **43/43** |
 | `cargo test --release` | 49 passed / 2 ignored | **52 passed / 2 ignored** |
 | Saavedra `c8=R!!`, Brilliance 100, levels 1–21 | not played below 21 | **played at every level** |
-| Saavedra, Brilliance 0 | `c8=Q` | **`c8=Q`** (levels 1–21) |
+| Saavedra, Brilliance 0, levels 1–9 / 10–21 | `c8=Q` / already `c8=R` | **`c8=Q` / still `c8=R`** |
 
 Three new unit tests pin the static classification: the underpromotion class (and the
 queen promotion's exclusion), the Saavedra rook promotion with quiet king moves excluded,
