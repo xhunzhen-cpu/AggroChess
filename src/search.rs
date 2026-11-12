@@ -1691,8 +1691,9 @@ impl Searcher {
         let ezone = eval::king_zone(board, them);
         let occ = board.occupied().0;
         let lmp_limit = (3 + depth * depth) / if improving { 1 } else { 2 };
-        // Sacrifice appetite: full at the root, 60% on the engine's next move, so it also
-        // steers towards positions where a sacrifice will be available.
+        // Sacrifice appetite: full at the root, still full on the engine's next move (more,
+        // when the root move was a sacrifice: the chain bonus), and half two moves out, so it
+        // also steers towards positions where a sacrifice will be available.
         let sac_bonus = if root {
             self.sac.bonus
         } else if ply == 2 && stm == self.root_color {

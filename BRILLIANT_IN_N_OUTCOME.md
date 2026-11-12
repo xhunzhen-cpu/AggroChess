@@ -43,7 +43,7 @@ than patched, because the flaws are structural, not local.
 
 ## The adversarial review (10 lenses → 2 skeptics per finding): 41 findings, 8 blockers
 
-Run as workflow `wf_adcb400c-9b2` over the design and the real code. The blockers, all
+Run as a 10-lens workflow over the design and the real code. The blockers, all
 independently consistent with the measurements above:
 
 1. **`group_look` cannot express a minimising "worst reply" search.** It returns a maximising
@@ -64,8 +64,8 @@ independently consistent with the measurements above:
 
 Plus 33 major/minor findings on TT frame keys, root LMR hiding the opponent's best decliner, the
 info-string grammar, `go infinite`/ponder gating, warm-TT contamination of a neutral search, and
-more. Full list in the workflow journal
-(`…/subagents/workflows/wf_adcb400c-9b2/journal.jsonl`).
+more. The full list is archived in `REVIEW_FINDINGS_brilliant_in_n.md` (the workflow's own
+transcripts were deleted after the work was finished).
 
 ## What the review says *is* worth having
 
