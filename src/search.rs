@@ -2786,8 +2786,13 @@ fn search_position_inner(
         let tt = Arc::clone(&tt);
         let stop = Arc::clone(&stop);
         let nodes = Arc::clone(&nodes);
-        let builder = std::thread::Builder::new().stack_size(64 * 1024 * 1024);
-        handles.push(builder.spawn(move || {
+        // Helper stacks: 64 MiB each would reserve 8 GiB of stack at Threads=128. The
+        // search recursion uses MAX_PLY (128) frames of a few KB - 16 MiB is generous.
+        // And a helper that cannot be spawned (out of memory, thread limit) is *skipped*,
+        // not fatal: the main search alone still plays the move (panic=abort would
+        // otherwise kill the engine mid-game).
+        let builder = std::thread::Builder::new().stack_size(16 * 1024 * 1024);
+        match builder.spawn(move || {
             let mut s = Searcher::new(tt, stop, nodes, false);
             s.sac = sac;
             s.hashes = h;
@@ -2799,7 +2804,15 @@ fn search_position_inner(
                 score = aspiration(&mut s, &b, d, score);
                 d += 1;
             }
-        }).expect("failed to spawn helper thread"));
+        }) {
+            Ok(handle) => handles.push(handle),
+            Err(e) => {
+                // keep Lazy-SMP alive with one fewer helper; the engine still moves
+                if print_info && std::env::var("AGGRO_LOOKDBG").is_ok() {
+                    out!("info string helper thread {} skipped: {}", t, e);
+                }
+            }
+        }
     }
 
     let root_filter_now = ROOT_FILTER.lock().unwrap().clone();
