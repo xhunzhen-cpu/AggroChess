@@ -54,9 +54,14 @@ implementation:
   every exit path — early return, `?`, or a future edit — restores the evaluation.
 * `SacParams::neutral()` is now *actually* neutral: `check_see`, `ext_depth` and
   `zone_order` were still personality values, which biased the neutral comparison toward
-  sacrifices. The full-strength numbers below are unchanged (the compare is done at
-  `Brilliance` default and the bench is bit-identical), but the look no longer grades a
-  sacrifice with a sacrifice-friendly pruning margin.
+  sacrifices. **This changes full-strength verdicts on purpose**: the look now grades a
+  sacrifice without a sacrifice-friendly pruning margin, so it will judge some positions
+  differently from 5.3.0. The bench is unaffected (the look is outside it) and Classic
+  `go depth` parity is exact, but timed full-strength games are *not* bit-identical to
+  5.3.0 — an A/B over ten positions at 0.7 s showed different look verdicts in most of
+  them (the played moves agreed in all but one, on two of them; see "Measured" below).
+  The 5.1 sample that produced +80 Elo was measured with the old partial
+  neutralisation, so this release does **not** claim that number.
 * `exact_root` and the full-window iteration keep the underpromotion group from being
   LMR-reduced out of judgement.
 * The look's two halves now *share* one budget instead of each taking the full amount
@@ -75,7 +80,21 @@ implementation:
 
 Three new unit tests pin the static classification: the underpromotion class (and the
 queen promotion's exclusion), the Saavedra rook promotion with quiet king moves excluded,
-and the Greek gift's `Bxh7+` as a sacrifice candidate.
+and the Greek gift's `Bxh7+` as a sacrifice candidate. `tests/brilliance.epd` carries six
+brilliancy-behaviour positions (two real brilliancies, four controls where the look must
+decline), all six verified to pass.
+
+## Measured, and not measured
+
+* **Played moves.** A 10-position A/B against the 5.3.0 binary at 0.7 s per move agreed on
+  8 of 10 positions and disagreed on 2 (`d1c1` vs `f3g5`, and one `c3e2` vs `e4e5` at
+  Brilliance 75) — both the direct result of the corrected neutral evaluation. Nothing here
+  claims the change is stronger; it is a correctness fix whose strength effect is
+  unmeasured.
+* **Brilliant frequency at a weak level.** A 12-position scan at levels 1 and 5 found one
+  underpromotion taken in 12 positions and no sacrifice swaps, which is what a rare event
+  looks like in a small sample — not evidence of frequency either way.* **Timing.** The weak-level verification look costs a few milliseconds per move: the
+  level-1 Saavedra run finishes in ~1.5 s wall clock including engine startup.
 
 ## Not done, and why
 

@@ -1,0 +1,6 @@
+8/2P5/8/8/3r4/8/2K5/k7 w - - bm c8=R; id "B1"; c0 "Saavedra position (1895): 1.c8=R!! (1.c8=Q? Rc4+! and stalemate) - the underpromotion the ordinary search cannot find"; c1 "underpromotion class; played at Brilliance>0 at every Skill Level"; c3 "c7c8r";
+7k/8/8/8/8/8/8/K7 w - - bm a1b1; id "B2"; c0 "bare kings: no brilliancy candidate, nothing may be invented"; c1 "control: Brilliance has nothing to look at"; c3 "a1b1";
+6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - bm d1d8; id "B3"; c0 "back-rank mate with nothing to sacrifice: a brilliancy look must leave a mating move alone"; c1 "control"; c3 "d1d8";
+r1bq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 0 8 - bm Bxh7+; id "B4"; c0 "Greek gift: Bxh7+ is a sacrifice candidate and the search plays it"; c1 "sacrifice class"; c3 "d3h7";
+1r4k1/5ppp/8/8/8/8/5PPP/1R4K1 w - - bm b1b8; id "B5"; c0 "rook trade into a king-and-pawn ending: the search's own choice stands"; c1 "control"; c3 "b1b8";
+2r3k1/5ppp/8/8/8/8/5PPP/1R4K1 w - - bm g2g3; id "B6"; c0 "equal rook ending: the only 'sacrifice' is Rxb8, which the neutral look must reject"; c1 "control: the look prints a verdict but takes nothing"; c3 "g2g3";
