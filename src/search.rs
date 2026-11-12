@@ -3304,20 +3304,29 @@ fn search_position_inner(
             let pick = crate::human::natural_pick(board, &pairs);
             let l = &near[pick];
             if l.mv != best_move.unwrap() {
-                if print_info {
-                    let bonus = crate::human::natural_bonus(board, l.mv) - crate::human::natural_bonus(board, best_move.unwrap());
-                    out!(
-                        "info string human style: {} instead of {} (+{} natural, {} cp apart)",
-                        cozy_chess::util::display_uci_move(board, l.mv),
-                        cozy_chess::util::display_uci_move(board, best_move.unwrap()),
-                        bonus,
-                        lines[0].score - l.score
-                    );
+                // how much taste was spent: the bonus is submitted in 1/8ths of a
+                // centipawn, so at Style 70 the taste decides up to ~12 cp - always
+                // inside the near-equal margin, never more
+                let bonus_total = crate::human::natural_bonus(board, l.mv);
+                let tasteful = bonus_total >= 8 && lines[0].score - l.score >= 0;
+                if tasteful {
+                    if print_info {
+                        let bonus = crate::human::natural_bonus(board, l.mv) - crate::human::natural_bonus(board, best_move.unwrap());
+                        out!(
+                            "info string human style: {} instead of {} (+{} natural, {} cp apart)",
+                            cozy_chess::util::display_uci_move(board, l.mv),
+                            cozy_chess::util::display_uci_move(board, best_move.unwrap()),
+                            bonus,
+                            lines[0].score - l.score
+                        );
+                    }
+                    best_move = Some(l.mv);
+                    best_score = l.score;
+                    best_sb = l.sb;
+                    *LAST_PV.lock().unwrap() = l.pv.clone();
+                } else if print_info && std::env::var("AGGRO_HUMANDBG").is_ok() {
+                    out!("info string human style: kept {} (the taste was within noise)", cozy_chess::util::display_uci_move(board, best_move.unwrap()));
                 }
-                best_move = Some(l.mv);
-                best_score = l.score;
-                best_sb = l.sb;
-                *LAST_PV.lock().unwrap() = l.pv.clone();
             }
         }
     }

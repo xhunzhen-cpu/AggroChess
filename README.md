@@ -162,7 +162,9 @@ operator sees the move; the move itself and the `bestmove` line are untouched.
   scaled by the time frame) the engine stops acting and replies instantly;
 * `go infinite`, `go movetime`, `go depth`, `go nodes` and `searchmoves` are never delayed —
   analysis stays instant;
-* book moves are not acted on;
+* book moves are not acted on: the opening is answered from theory, at once. Your first
+  few book moves reply instantly by design; when the engine leaves the book it eases in
+  with the short theory-glances of the realism rules, so there is no cliff;
 * a `stop` from the GUI during the pause ends it immediately;
 * a genuinely long search already *is* the think: the pause shrinks by the search time, and
   never pads beyond the target.

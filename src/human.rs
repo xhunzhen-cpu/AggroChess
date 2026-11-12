@@ -178,12 +178,24 @@ pub fn delay_ms(board: &Board, mv: Option<Move>, ctx: &Limits, think_ms: u128, c
     }
     // never more than 1/12 of the remaining clock, whatever the act says below
     let mut cap = ourtime / 12;
-    // a fixed movetime game with no declared frame is a fast game: the reply stays within
-    // fixed-time patience (at most 5x the movetime). With a frame declared (Human Base
-    // Minutes) the pauses pace like the clock game the operator is actually playing -
-    // a hand-relay game's speed is the platform's clock, not the engine's search budget.
+    // A declared frame in a movetime relay is a *game* clock the engine never sees. A real
+    // 5-minute player's clock drains: by move 40 of 80 there is half the frame left. The
+    // cap pretends a game is ~80 moves so the pauses stay inside what the operator's
+    // platform clock can actually afford late in the game - without this, a 5+0 relay move
+    // at move 80 could still get a full frame/12 pause (25 s of the operator's last minute).
     if let Some(mt) = ctx.movetime {
-        if minutes == 0 {
+        if minutes > 0 {
+            let frame = 60_000 * minutes as u64;
+            let moves_est = 80u64;
+            let played = (board.fullmove_number().max(1) as u64).min(moves_est);
+            let remaining_frac = (moves_est - played) + 1; // 81 - move number, at least 1/80th
+            let est_clock = frame * remaining_frac / moves_est;
+            cap = cap.min(est_clock / 12 + 1).max(250);
+            // and the same draining rule decides when to stop acting at all
+            if est_clock <= low_ms {
+                return 0;
+            }
+        } else {
             cap = cap.min(mt.saturating_mul(5));
         }
     }
@@ -219,9 +231,22 @@ pub fn delay_ms(board: &Board, mv: Option<Move>, ctx: &Limits, think_ms: u128, c
 }
 
 /// A random fraction in 0..1 (xorshift64*), advanced per call; runs on the UCI thread only.
+/// The seed comes from the clock unless AGGRO_SEED fixes it: with the old constant seed the
+/// same game transcript literally replayed the same pause rhythm.
 fn rand_unit() -> f32 {
-    static RNG: AtomicU64 = AtomicU64::new(0x9E37_79B9_7F4A_7C15);
+    static RNG: AtomicU64 = AtomicU64::new(0);
     let mut x = RNG.load(Ordering::Relaxed);
+    if x == 0 {
+        // first use: seed from the fixed engine seed if any, else the clock
+        x = crate::skill::FIXED_SEED.load(Ordering::Relaxed);
+        if x == 0 {
+            x = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(0x9E37_79B9_7F4A_7C15);
+        }
+        x = x.wrapping_mul(0x2545_F491_4F6C_DD1D) | 1;
+    }
     x ^= x >> 12;
     x ^= x << 25;
     x ^= x >> 27;
@@ -315,13 +340,15 @@ pub fn natural_bonus(board: &Board, mv: Move) -> i32 {
 }
 
 /// The natural-move choice among near-equal candidates: the bonus tilts the pick towards the
-/// human-natural move while keeping every score the search computed. Returns the index of
-/// the winner.
+/// human-natural move while keeping every score the search computed. The bonus counts in
+/// half-centipawns (a typical single-component bonus of 25 at Style 70 is ~12 cp, always
+/// inside the caller's near-equal margin) - before, the weights were scaled so a single centipawn of search
+/// difference outranked any taste, and Style only ever re-ranked exactly equal moves.
 pub fn natural_pick(board: &Board, lines: &[(Move, i32)]) -> usize {
     let mut best = 0usize;
     let mut best_val = i64::MIN;
     for (i, (mv, score)) in lines.iter().enumerate() {
-        let val = i64::from(*score) * 256 + i64::from(natural_bonus(board, *mv));
+        let val = i64::from(*score) * 2 + i64::from(natural_bonus(board, *mv));
         if val > best_val {
             best_val = val;
             best = i;
@@ -477,6 +504,14 @@ mod tests {
         // a clearly better move is never swapped out by the taste
         let lines = [(a3, 90), (nf3, 20)];
         assert_eq!(natural_pick(&b, &lines), 0);
+        // the taste wins inside the margin but not outside it: a better scoring natural
+        // move wins immediately (the bonus cannot bridge real score gaps)
+        let lines = [(a3, 40), (nf3, 44)];
+        assert_eq!(natural_pick(&b, &lines), 1, "the better-scoring natural move wins");
+        let lines = [(a3, 60), (nf3, 20)];
+        assert_eq!(natural_pick(&b, &lines), 0, "a 40 cp gap is far outside the taste");
+        let lines = [(a3, 10), (nf3, 10)];
+        assert_eq!(natural_pick(&b, &lines), 1, "on an exact tie the natural move wins");
         STYLE.store(0, Ordering::Relaxed);
     }
 

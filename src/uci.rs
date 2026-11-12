@@ -745,7 +745,8 @@ pub fn uci_loop() {
                     if mins > 0 { 60_000 * mins as u64 } else { mt.saturating_mul(40) }
                 });
                 let human = crate::human::Limits {
-                    ourtime: if infinite {
+                    ourtime: if infinite || !searchmoves.is_empty() {
+                        // single-move analysis replies print at once (module doc)
                         None
                     } else if let Some(frame) = movetime_frame {
                         Some(frame)
