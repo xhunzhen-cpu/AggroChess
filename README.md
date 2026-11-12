@@ -18,13 +18,29 @@ Setting the personality to the *Classic* values reproduces AggroChess 4.5.0's se
 
 AggroChess is a standard UCI engine: one executable, with the neural network and the gambit book built in.
 
-1. Build it (see below). `ph-gambitbook.bin` next to the executable (or in the GUI's working directory for the engine) is optional: a Polyglot book used after the built-in gambit lines run out.
+1. Build it (see below), or unpack a prebuilt package from `dist/`
+   (`aggrochess-use-*-windows-x86_64-avx2.zip` needs a 64-bit CPU with AVX2, essentially any desktop CPU from 2013 onwards; the `linux-x86_64-meteorlake` build additionally uses the AVXv2 set of Intel's 12th-generation-or-later cores and is best on those). Verify a download with `./aggro_chess bench` — it must print `287284 nodes`.
+   `ph-gambitbook.bin` next to the executable (or in the GUI's working directory for the engine) is optional: a Polyglot book used after the built-in gambit lines run out.
 2. Add it to your GUI:
    * **Cute Chess**: *Tools → Settings → Engines → +*, choose the executable, protocol UCI. The options appear under *Advanced*.
    * **Arena**: *Engines → Install New Engine…*, pick the executable, confirm UCI. Options: *Engines → Manage → Details → UCI*.
    * **Banksia GUI**: *Engines → Add*, select the file; the options are in the engine's configuration panel.
    * **lichess-bot, Coliseum, Nibbler, En Croissant** and other UCI front ends work the same way.
 3. Set `Threads`, `Hash` and, if you like, the strength and personality options described below.
+
+### Hand-relay operator recipe (playing other bots by hand)
+
+The scenario this edition was tuned for: you relay the engine's moves by hand, on another board or site, at a fixed thinking time. Set exactly this once:
+
+| Option | Value | Why |
+|---|---|---|
+| `Human Think Time` | 100 | full human pacing |
+| `Human Style` | 70 | natural move choice among near-equals |
+| `Human Base Minutes` | 5 | the frame you are actually playing at |
+| `Human Increment Seconds` | 0 | |
+| `Relay Hint` | 2000 | `info string relay hint: <move>` appears 2.00 s before the reply |
+
+Then send it fixed `go movetime 300` per move (or use the GUI's fixed-time mode). Opening moves, recaptures and free pieces are answered in a blink; quiet middlegame moves think 1–3 s; real sacrifices get the long human look. The engine also answers `go ponder` / `ponderhit` correctly, so pondering GUIs stay in sync.
 
 ## Building from source
 
@@ -35,13 +51,13 @@ AggroChess is a standard UCI engine: one executable, with the neural network and
    ```
 3. The binary is `target/release/aggro_chess` (`aggro_chess.exe` on Windows).
 
-`cargo test --release` runs the test suite (37 tests, plus 2 ignored developer scans: mates, the Greek Gift, sacrificial mates, the Albin pawn that must *not* be sacrificed, swindle timing, every opening-book line, SEE, evaluation symmetry, incremental network updates, the personality mapping, every Skill Level playing legal moves in time, Skill Level never touching the personality, …). `aggro_chess bench` prints a node count and speed (287284 nodes with the default personality).
+`cargo test --release` runs the test suite (49 tests, plus 2 ignored developer scans: mates, the Greek Gift, sacrificial mates, the Albin pawn that must *not* be sacrificed, swindle timing, every opening-book line, SEE, evaluation symmetry, incremental network updates, the personality mapping, every Skill Level playing legal moves in time, Skill Level never touching the personality, …). `aggro_chess bench` prints a node count and speed (287284 nodes with the default personality).
 
 ## UCI options
 
 | Option | Type | Default | Range | What it does |
 |---|---|---|---|---|
-| `Threads` | spin | CPU cores (max 8) | 1–128 | Search threads (Lazy SMP). Skill Levels 1–20 always search with one thread. |
+| `Threads` | spin | logical CPUs (max 8) | 1–128 | Search threads (Lazy SMP). Skill Levels 1–20 always search with one thread. |
 | `Hash` | spin | 128 | 1–4096 MB | Transposition table size. Allocated on `isready`. |
 | `Clear Hash` | button | | | Empties the transposition table. |
 | `MultiPV` | spin | 1 | 1–64 | Number of best lines shown in analysis. |
