@@ -105,9 +105,19 @@ pub fn uci_loop() {
                 let name_pos = tokens.iter().position(|&t| t == "name");
                 let value_pos = tokens.iter().position(|&t| t == "value");
                 if let Some(np) = name_pos {
-                    let name_end = value_pos.unwrap_or(tokens.len());
-                    let name = tokens[np + 1..name_end].join(" ").to_lowercase();
-                    let value = value_pos.map(|vp| tokens[vp + 1..].join(" ")).unwrap_or_default();
+                    // a GUI may send `setoption value V name N` (value first): be robust,
+                    // panic=abort would otherwise kill the whole engine on a bad ordering
+                    let name_end = match value_pos {
+                        Some(vp) if vp > np => vp,
+                        _ => tokens.len(),
+                    };
+                    let (name, value) = if name_end > np + 1 {
+                        (tokens[np + 1..name_end].join(" ").to_lowercase(), value_pos.map(|vp| tokens[vp + 1..].join(" ")).unwrap_or_default())
+                    } else {
+                        // name is where the value would start (or nothing): the line is
+                        // malformed; the value (if any) still applies to the known option
+                        (String::new(), String::new())
+                    };
                     // The advertised options are user settings. Everything else (swindle mode,
                     // the tuning knobs) is fixed; the knobs answer only in a development run
                     // (AGGRO_DEV set), for testing.
@@ -760,10 +770,10 @@ pub fn uci_loop() {
                 };
                 // the bestmove reply is postponed by the Human Think Time act (0 = at once)
                 let pondering = ponder;
-                search_thread = Some(
-                    std::thread::Builder::new()
-                        .stack_size(SEARCH_STACK)
-                        .spawn(move || {
+                let fallback_board = board.clone();
+                let spawn_result = std::thread::Builder::new()
+                    .stack_size(SEARCH_STACK)
+                    .spawn(move || {
                             // Ponder: think ahead open-ended in a thread of its own while the
                             // GUI makes up its mind. `ponderhit` converts that work into the
                             // real clocked search on the hash table the ponder just warmed;
@@ -856,10 +866,29 @@ pub fn uci_loop() {
                                 None => out!("bestmove 0000"),
                             }
                             let _ = io::stdout().flush();
-                        })
-                        .expect("failed to spawn search thread"),
-                );
-            }
+                        });
+                    match spawn_result {
+                        Ok(handle) => search_thread = Some(handle),
+                        Err(e) => {
+                            // panic=abort would kill the engine for the whole rest of the
+                            // session: a failed spawn (thread/memory exhaustion) must not.
+                            // Answer at once from the first legal move so the game continues.
+                            let mut first: Option<cozy_chess::Move> = None;
+                            fallback_board.generate_moves(|mvs| {
+                                if first.is_none() {
+                                    first = mvs.into_iter().next();
+                                }
+                                false
+                            });
+                            out!("info string search thread unavailable: {} - playing a legal move", e);
+                            match first {
+                                Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&fallback_board, mv)),
+                                None => out!("bestmove 0000"),
+                            }
+                            let _ = io::stdout().flush();
+                        }
+                    }
+                }
             "ponderhit" => {
                 // the pondered position became reality: hand the stored clock over and
                 // release the waiting search. The ponder search runs open-ended; this is
