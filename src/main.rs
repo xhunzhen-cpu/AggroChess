@@ -4,6 +4,7 @@ macro_rules! out {
 }
 
 pub mod book;
+pub mod brilliant;
 pub mod datagen;
 pub mod eval;
 pub mod human;

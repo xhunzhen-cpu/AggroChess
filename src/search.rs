@@ -9,6 +9,7 @@
 //! * Checks are extended, and quiescence search looks at quiet checks.
 //! * Draws are scored with contempt from the engine's point of view.
 
+use crate::brilliant;
 use crate::eval::{self, SEE_VALUE};
 use crate::nnue::Accumulator;
 use cozy_chess::{BitBoard, Board, Color, Move, Piece, Square};
@@ -1105,6 +1106,10 @@ pub struct Searcher {
     root_exclude: Vec<Move>,
     /// a root searched with only some of its moves (brilliancy look): keep its entry out of the table
     no_root_store: bool,
+    /// a root whose moves must all be searched at full depth (the brilliancy look's
+    /// underpromotion group, which the ordinary ordering buries last and LMR would reduce):
+    /// default false, so every ordinary search is bit-identical
+    exact_root: bool,
     /// the root's best move earned the sacrifice bonus as a sacrifice (not the forcing tie-break)
     root_best_sac: bool,
     /// null-move verification: no null move for `nmp_color` before this ply
@@ -1163,6 +1168,7 @@ impl Searcher {
             root_only: Vec::new(),
             root_exclude: Vec::new(),
             no_root_store: false,
+            exact_root: false,
             root_best_sac: false,
             nmp_min_ply: 0,
             nmp_color: Color::White,
@@ -1953,7 +1959,10 @@ impl Searcher {
                 && depth >= 10
                 && ROOT_DRAW_ESCAPE.load(Ordering::Relaxed) > 0
                 && (best_score == draw_here || (best_score > -INF && best_score <= -ROOT_FULL_BELOW.load(Ordering::Relaxed)));
-            if !noprune(16) && depth >= 3 && move_count > 1 + root as usize && (quiet || !see_ge(board, m, 0)) && !full_sac && !no_draw_lmr {
+            // a look whose root moves must all reach full depth (the underpromotion group:
+            // the ordinary ordering buries them last, so late-move reductions would judge
+            // them without searching them). `exact_root` is false for ordinary searches.
+            if !noprune(16) && depth >= 3 && move_count > 1 + root as usize && !(root && self.exact_root) && (quiet || !see_ge(board, m, 0)) && !full_sac && !no_draw_lmr {
                 let mut r = self.lmr[depth.min(63) as usize][move_count.min(63)];
                 if !improving {
                     r += 1;
@@ -2368,47 +2377,112 @@ fn sub_search(tt: &Arc<TranspositionTable>, board: &Board, hist: &[u64], sac: Sa
     last
 }
 
-/// Root moves that sacrifice material: the moved piece is lost by static exchange (a minor
-/// piece for pawns, the exchange or more), or the move leaves something worth more than two
-/// pawns to be taken.
-fn brilliant_candidates(board: &Board, root_moves: &[Move]) -> Vec<Move> {
-    root_moves
-        .iter()
-        .copied()
-        .filter(|&m| {
-            if board.piece_on(m.from) == Some(Piece::King) || m.promotion.is_some() {
-                return false;
-            }
-            if !see_ge(board, m, -150) {
-                return true;
-            }
-            let mut child = board.clone();
-            child.play_unchecked(m);
-            leaves_material_at(&child, 250)
-        })
-        .collect()
+/// Explicitly neutral sacrifice settings for the brilliancy look: no bonus of any kind, and
+/// none of the personality's *search* knobs either (a speculative-Sacrifices pruning margin or
+/// a king-zone ordering bonus would bias the neutral comparison toward sacrifices).
+impl SacParams {
+    pub fn neutral() -> Self {
+        SacParams {
+            bonus: 0,
+            floor: 0,
+            units: 0,
+            any: false,
+            chain: 0,
+            win: false,
+            gambit: 0,
+            partial_hi: 0,
+            partial_lo: 0,
+            tal_sacs: false,
+            check_see: 120,
+            ext_depth: 4,
+            zone_order: 0,
+            forcing: 0,
+        }
+    }
 }
 
-/// The brilliancy look's search: the root with only `group` searched, on the main table (it
-/// is warm) without storing the root. Returns the objective score (sacrifice bonus taken
-/// out), depth, the bonus and the PV of the last completed iteration.
-fn group_look(tt: &Arc<TranspositionTable>, board: &Board, hist: &[u64], sac: SacParams, budget: Duration, group: Vec<Move>, max_depth: i32) -> Option<(i32, i32, i32, Vec<Move>)> {
+/// Switches the evaluation to neutral for as long as it lives, and puts it back on drop -
+/// including on an early return or a `?`. With `panic = "abort"` a panic ends the process, so
+/// the drop guard covers every path that can leave the look's scope alive.
+struct NeutralGuard {
+    contempt: i32,
+    tal: bool,
+    stm: Color,
+}
+
+impl NeutralGuard {
+    fn enter(stm: Color) -> Self {
+        let g = NeutralGuard { contempt: CONTEMPT.load(Ordering::Relaxed), tal: TAL_MODE.load(Ordering::Relaxed), stm };
+        eval::set_engine_color(None);
+        CONTEMPT.store(0, Ordering::Relaxed);
+        TAL_MODE.store(false, Ordering::Relaxed);
+        g
+    }
+}
+
+impl Drop for NeutralGuard {
+    fn drop(&mut self) {
+        eval::set_engine_color(Some(self.stm));
+        CONTEMPT.store(self.contempt, Ordering::Relaxed);
+        TAL_MODE.store(self.tal, Ordering::Relaxed);
+    }
+}
+
+/// The brilliancy look's search: the root with only `group` searched, on the caller's table
+/// (the main one is warm) without storing the root. Returns the objective score (sacrifice
+/// bonus taken out), depth, the bonus and the PV of the last completed iteration.
+///
+/// The budget is whatever the caller could afford: `Some(nodes)` for a weakened engine (its
+/// allowance is counted in nodes) or `None` for a timed one, where `time` is the wall-clock
+/// cap in that case. `style` copies the level's search reductions, so a weak engine's look
+/// cannot out-search the engine that is paying for it.
+fn group_look(
+    tt: &Arc<TranspositionTable>,
+    board: &Board,
+    hist: &[u64],
+    sac: SacParams,
+    nodes: Option<u64>,
+    time: Duration,
+    group: Vec<Move>,
+    max_depth: i32,
+    style: Option<&crate::skill::Level>,
+    exact: bool,
+) -> Option<(i32, i32, i32, Vec<Move>)> {
     let stop = Arc::new(AtomicBool::new(false));
-    let mut t = Searcher::new(Arc::clone(tt), Arc::clone(&stop), Arc::new(AtomicU64::new(0)), true);
+    let shared = Arc::new(AtomicU64::new(0));
+    let mut t = Searcher::new(Arc::clone(tt), Arc::clone(&stop), shared, true);
     t.sac = sac;
     t.hashes = hist.to_vec();
     t.root_color = board.side_to_move();
     t.start = Instant::now();
-    t.hard_limit = Some(budget);
+    if let Some(n) = nodes {
+        t.node_limit = Some(n);
+        // a small node budget must be spent finely: the coarse mask would overshoot it whole
+        t.check_mask = if n <= 256 { 3 } else if n <= 4096 { 15 } else { 63 };
+    } else {
+        t.hard_limit = Some(time);
+    }
+    if let Some(w) = style {
+        t.weak_lmr = w.lmr_add;
+        t.qs_checks = w.qs_checks;
+        t.check_ext = w.check_ext;
+    }
     t.root_only = group;
     t.no_root_store = true;
+    t.exact_root = exact;
     let mut sc = 0;
     let mut last = None;
     for depth in 1..=max_depth.max(1) {
         t.root_depth = depth;
         t.root_best_sb = 0;
         t.root_best_sac = false;
-        sc = aspiration(&mut t, board, depth, sc);
+        sc = if exact {
+            // a fixed-depth look: a full window, so no beta cutoff ends the group early and
+            // every move of the group is judged at the same depth
+            t.search(board, depth, -INF, INF, 0, false)
+        } else {
+            aspiration(&mut t, board, depth, sc)
+        };
         if stop.load(Ordering::Relaxed) {
             break;
         }
@@ -2653,7 +2727,10 @@ fn search_position_inner(
     // whatever the GUI asked for, and part of the time goes (MultiPV costs depth).
     let weak = crate::skill::params();
     let full = weak.is_none();
+    // Whether the GUI itself asked for a node or depth limit: the brilliancy look must never
+    // touch an explicit analysis request (and `go depth` keeps the Classic parity exact).
     let user_nodes = limits.nodes.is_some();
+    let user_depth = limits.depth.is_some();
     if let Some(w) = weak {
         if w.nodes > 0 {
             limits.nodes = Some(limits.nodes.map_or(w.nodes, |n| n.min(w.nodes)));
@@ -2722,27 +2799,73 @@ fn search_position_inner(
         limits.soft = limits.soft.map(|h| h * keep / 100);
     }
 
-    // Brilliancy look (timed games at full strength): part of the time is kept back when
-    // the position has sacrifices to look at.
+    // Brilliancy look: the move the search is about to play is checked against the positions'
+    // brilliant moves - sound material sacrifices and underpromotions - by a neutral search.
+    // At full strength the look keeps back part of the move's time when there is something to
+    // look at; at a Skill Level 1-20 it is paid out of that level's own allowance, so the
+    // level's strength ladder keeps its measured budget.
     let brilliance = BRILLIANCE.load(Ordering::Relaxed).clamp(0, 100);
-    let bril_cands: Vec<Move> = if brilliance > 0
-        && full
+    let mut bril_cands: Vec<Move> = Vec::new();
+    let mut promo_cands: Vec<Move> = Vec::new();
+    let mut bril_look = brilliant::Budget::Off;
+    if brilliance > 0
         && !user_nodes
-        && limits.depth.is_none()
-        && limits.hard.is_some()
+        && !user_depth
         && MULTI_PV.load(Ordering::Relaxed) <= 1
         && ROOT_FILTER.lock().unwrap().is_empty()
+        && (full || limits.nodes.is_some() || limits.hard.is_some())
     {
-        brilliant_candidates(board, &root_moves)
-    } else {
-        Vec::new()
-    };
-    let bril_on = !bril_cands.is_empty() && bril_cands.len() < root_moves.len();
-    if bril_on {
-        let keep = (100 - BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50)) as u32;
-        limits.hard = limits.hard.map(|h| h * keep / 100);
-        limits.soft = limits.soft.map(|h| h * keep / 100);
+        // the classification is static (no search, no nodes), so a position with nothing to
+        // look at pays nothing at all
+        let cands = brilliant::candidates(board, &root_moves);
+        for c in cands {
+            match c.kind {
+                brilliant::Kind::Sacrifice => bril_cands.push(c.mv),
+                brilliant::Kind::Underpromotion => promo_cands.push(c.mv),
+            }
+        }
+        if bril_cands.len() >= root_moves.len() {
+            bril_cands.clear(); // every legal move gives material away: nothing to compare
+        }
+        let pct_now = if full {
+            // exactly the 5.3.0 share: the look's time is derived from what the search used
+            BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50) as u32
+        } else {
+            (BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50) * brilliance / 100).clamp(1, 60) as u32
+        };
+        let wants = !bril_cands.is_empty() || !promo_cands.is_empty();
+        let cands_n = (bril_cands.len() + promo_cands.len()).max(1);
+        bril_look = if !wants {
+            brilliant::Budget::Off
+        } else if full {
+            // full strength: part of the move's time is kept back, as measured in 5.3.0
+            if limits.hard.is_some() {
+                let keep = (100 - pct_now) as u32;
+                limits.hard = limits.hard.map(|h| h * keep / 100);
+                limits.soft = limits.soft.map(|t| t * keep / 100);
+                brilliant::Budget::TimeMs(0) // derived from what the search used, below
+            } else {
+                brilliant::Budget::Off
+            }
+        } else if limits.nodes.is_some() {
+            // A weakened engine is paid in nodes, and its own budget is far too small to judge
+            // a sacrifice (level 5 searches ~600 nodes at depth 4). The look therefore gets a
+            // small verification budget of its own, scaled by Brilliance, entirely separate
+            // from the level's allowance: the level's own search, move and measured strength
+            // are untouched, and the look can only add a brilliancy the level could not see.
+            let share = (brilliant::VERIFY_NODES * brilliance as u64 / 100)
+                .clamp(brilliant::MIN_LOOK_NODES, brilliant::MAX_LOOK_NODES);
+            brilliant::Budget::Nodes(share.max(cands_n as u64))
+        } else if let Some(h) = limits.hard {
+            let keep = (100 - pct_now) as u32;
+            limits.hard = Some(h * keep / 100);
+            limits.soft = limits.soft.map(|t| t * keep / 100);
+            brilliant::Budget::TimeMs(h.saturating_sub(h * keep / 100).as_millis() as u64)
+        } else {
+            brilliant::Budget::Off
+        };
     }
+    let promo_on = !matches!(bril_look, brilliant::Budget::Off) && !promo_cands.is_empty();
 
     let mut s = Searcher::new(Arc::clone(&tt), Arc::clone(&stop), Arc::clone(&nodes), true);
     s.sac = sac;
@@ -2853,6 +2976,9 @@ fn search_position_inner(
     let mut best_move = Some(root_filter_now.first().copied().unwrap_or(root_moves[0]));
     let mut best_score = 0;
     let mut best_sb = 0;
+    // set when a deliberate later stage (brilliancy look, ...) picked the move on purpose:
+    // the Human Style taste and the swindle must then leave it alone
+    let mut strategy_swap = false;
     let mut prev_best: Option<Move> = None;
     let mut stability = 0;
     let mut prev_score = 0;
@@ -3188,63 +3314,110 @@ fn search_position_inner(
     // The main search's choice is checked against the other group of moves, by objective
     // score (the sacrifice bonus taken out): a quiet choice gives way to a sacrifice that is
     // nearly as good (a sound sacrifice, the kind that is "brilliant"), and a sacrificial
-    // choice gives way to a safe move that is clearly better (an unsound sacrifice).
-    if bril_on && clean_depth1 && best_score.abs() < MATE_BOUND && done_depth >= 4 {
+    // choice gives way to a safe move that is clearly better (an unsound sacrifice). A
+    // knight/bishop/rook underpromotion that the neutral search rates as well as the best
+    // ordinary move is played too - the ordinary search orders those last and the quiescence
+    // search never looks at them, so the look is the only thing that can find one.
+    //
+    // At a Skill Level the look is paid out of the level's own allowance in the level's own
+    // currency, and never overrides the level's own choice wholesale: it replaces the chosen
+    // move only when the neutral judgement prefers a brilliant one that the level could see.
+    let bril_ready = clean_depth1
+        && !strategy_swap
+        && best_score.abs() < MATE_BOUND
+        && done_depth >= if full { 4 } else { 1 };
+    if !matches!(bril_look, brilliant::Budget::Off) && bril_ready {
+        // The look's own depth ceiling. At full strength it follows the search; at a weakened
+        // engine the level's depth cap says nothing about how deep a *verification* must look
+        // (a level-5 cap of four plies cannot see Saavedra's stalemate nine plies away), so it
+        // is the look's own limit, bounded by the node budget that actually stops it.
+        let look_depth = if full { done_depth.min(max_depth) } else { brilliant::VERIFY_DEPTH };
+        let spend = |used: Duration| -> brilliant::Budget {
+            match bril_look {
+                brilliant::Budget::Nodes(n) => brilliant::Budget::Nodes(n),
+                brilliant::Budget::TimeMs(0) => {
+                    // full strength, exactly the 5.3.0 formula: the look's time is a share of
+                    // what the main search itself used, capped by what the move has left
+                    let pct = BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50) as u32;
+                    let mut budget = used * pct / (100 - pct);
+                    if let Some(h) = full_hard {
+                        budget = budget.min(h.saturating_sub(used));
+                    }
+                    brilliant::Budget::TimeMs(budget.as_millis() as u64)
+                }
+                brilliant::Budget::TimeMs(ms) => {
+                    // a weakened engine's timed level: a fixed share of its own allowance,
+                    // never past the move's own end
+                    let left = full_hard.map_or(Duration::ZERO, |h| h.saturating_sub(used));
+                    let want = Duration::from_millis(ms.max(brilliant::MIN_LOOK_TIME_MS));
+                    brilliant::Budget::TimeMs(want.min(left).as_millis() as u64)
+                }
+                brilliant::Budget::Off => brilliant::Budget::Off,
+            }
+        };
         if let Some(bm) = best_move {
             let used = start.elapsed();
-            let pct = BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50) as u32;
-            let mut budget = used * pct / (100 - pct);
-            if let Some(h) = full_hard {
-                budget = budget.min(h.saturating_sub(used));
-            }
+            let budget = spend(used);
             let best_true = best_score - best_sb;
             let best_is_sac = bril_cands.contains(&bm);
+            // what the ordinary search's choice is compared against
             let group: Vec<Move> = if best_is_sac {
-                root_moves.iter().copied().filter(|m| !bril_cands.contains(m)).collect()
+                root_moves.iter().copied().filter(|m| !bril_cands.contains(m) && !promo_cands.contains(m)).collect()
             } else {
                 bril_cands.clone()
             };
-            if !group.is_empty() && budget >= Duration::from_millis(20) && best_true.abs() < 1500 {
+            let mine: Vec<Move> = if best_is_sac {
+                vec![bm]
+            } else {
+                root_moves.iter().copied().filter(|m| !bril_cands.contains(m) && !promo_cands.contains(m)).collect()
+            };
+            if !group.is_empty() && !budget.is_off() && best_true.abs() < 1500 {
                 // both sides of the comparison are searched with the neutral evaluation (no
                 // personality, no sacrifice bonus, no contempt) on a fresh table, to the same
                 // depth: the personality's optimism about its own attacks is what makes a
                 // sacrifice unsound, so it must not judge it
-                let mine: Vec<Move> = if best_is_sac {
-                    vec![bm]
-                } else {
-                    root_moves.iter().copied().filter(|m| !bril_cands.contains(m)).collect()
-                };
-                let stm = board.side_to_move();
-                let contempt = CONTEMPT.load(Ordering::Relaxed);
-                let tal = TAL_MODE.load(Ordering::Relaxed);
-                eval::set_engine_color(None);
-                CONTEMPT.store(0, Ordering::Relaxed);
-                TAL_MODE.store(false, Ordering::Relaxed);
-                let mut nsac = SacParams::base();
-                nsac.bonus = 0;
-                nsac.chain = 0;
-                nsac.gambit = 0;
-                nsac.forcing = 0;
-                nsac.any = false;
+                let guard = NeutralGuard::enter(board.side_to_move());
+                let nsac = SacParams::neutral();
                 let ntt = Arc::new(TranspositionTable::new(16));
                 let look_start = Instant::now();
-                let a = group_look(&ntt, board, &s.hashes, nsac, budget / 2, mine, done_depth);
+                let style = weak.as_ref();
+                // divide the budget between the two halves of the comparison, in its currency
+                let split = |b: brilliant::Budget, first: bool| -> (Option<u64>, Duration) {
+                    match b {
+                        brilliant::Budget::Nodes(n) => {
+                            (Some(if first { n * 2 / 5 } else { n - n * 2 / 5 }), Duration::from_secs(0))
+                        }
+                        brilliant::Budget::TimeMs(ms) => {
+                            let d = Duration::from_millis(ms);
+                            (None, if first { d / 2 } else { d.saturating_sub(look_start.elapsed()) })
+                        }
+                        brilliant::Budget::Off => (None, Duration::ZERO),
+                    }
+                };
+                let (an, at) = split(budget, true);
+                let a = group_look(&ntt, board, &s.hashes, nsac, an, at, mine, look_depth, style, false);
+                let (bn, bt) = split(budget, false);
                 let b_res = a.as_ref().and_then(|&(_, da, _, _)| {
-                    group_look(&ntt, board, &s.hashes, nsac, budget.saturating_sub(look_start.elapsed()), group, da)
+                    let _ = da;
+                    group_look(&ntt, board, &s.hashes, nsac, bn, bt, group, look_depth, style, false)
                 });
-                eval::set_engine_color(Some(stm));
-                CONTEMPT.store(contempt, Ordering::Relaxed);
-                TAL_MODE.store(tal, Ordering::Relaxed);
+                drop(guard);
                 if let (Some((sa, da, _, _)), Some((sb2, db, _, pv))) = (a, b_res) {
                     let b = brilliance;
                     let margin = b * b / 125; // 75 -> 45 cp
                     let veto = 300 - 5 * b / 2; // 75 -> 112 cp
                     let floor = 50 - b; // 75 -> -25 cp
-                    let deep_enough = da >= 5 && db >= da - 1;
-                    let take = deep_enough
+                    let enough = if full { da >= 5 && db >= da - 1 } else { da >= 2 && db >= 1 };
+                    // A weakened engine's neutral look is shallow, and a shallow look cannot
+                    // tell a sound sacrifice from an unsound one nearly well enough to veto
+                    // one (measured: at level 8 a depth-3 look rejected the Greek gift). So at
+                    // a Skill Level the look may only *promote* a sound sacrifice, never
+                    // demote the level's own choice on evidence it is too thin to trust.
+                    let may_veto = full;
+                    let take = enough
                         && !pv.is_empty()
                         && if best_is_sac {
-                            sa < 300 && sb2.abs() < MATE_BOUND && sb2 > sa + veto
+                            may_veto && sa < 300 && sb2.abs() < MATE_BOUND && sb2 > sa + veto
                         } else {
                             sb2 >= MATE_BOUND
                                 || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < 1000)
@@ -3263,6 +3436,7 @@ fn search_position_inner(
                         );
                     }
                     if take {
+                        strategy_swap = true;
                         best_move = Some(pv[0]);
                         // the main search's view of the new move is not known: keep its score
                         // scale (objective, no bonus)
@@ -3271,6 +3445,85 @@ fn search_position_inner(
                         *LAST_PV.lock().unwrap() = pv.clone();
                         if print_info {
                             out!("info depth {} score {} pv {}", db, format_score(best_score), pv_string(board, &pv));
+                        }
+                    }
+                }
+            }
+        }
+        // ---- underpromotions: their own comparison, since the ordinary search ranks them last
+        if promo_on && !promo_cands.is_empty() && !best_move.map_or(false, |m| promo_cands.contains(&m)) {
+            let used = start.elapsed();
+            let budget = spend(used);
+            if !budget.is_off() {
+                let guard = NeutralGuard::enter(board.side_to_move());
+                let nsac = SacParams::neutral();
+                let ntt = Arc::new(TranspositionTable::new(8));
+                let look_start = Instant::now();
+                let style = weak.as_ref();
+                let best_true = best_score - best_sb;
+                let base = best_move.unwrap_or(root_moves[0]);
+                let (an, at) = match budget {
+                    brilliant::Budget::Nodes(n) => (Some(n / 3), Duration::ZERO),
+                    brilliant::Budget::TimeMs(ms) => (None, Duration::from_millis(ms) / 3),
+                    brilliant::Budget::Off => (None, Duration::ZERO),
+                };
+                // the verification look goes deeper than the level's own search: judging a
+                // promotion's point needs plies the level never reaches
+                let vdepth = if full { done_depth.min(max_depth) } else { brilliant::VERIFY_DEPTH };
+                let a = group_look(&ntt, board, &s.hashes, nsac, an, at, vec![base], vdepth, style, false);
+                let (bn, bt) = match budget {
+                    brilliant::Budget::Nodes(n) => (Some(n - n / 3), Duration::ZERO),
+                    brilliant::Budget::TimeMs(ms) => {
+                        (None, Duration::from_millis(ms).saturating_sub(look_start.elapsed()))
+                    }
+                    brilliant::Budget::Off => (None, Duration::ZERO),
+                };
+                // both groups to the depth the main search reached, so the comparison is at
+                // equal depth (a promotion needs a few plies to show its point)
+                let max_pv = if full { done_depth.min(max_depth) } else { vdepth };
+                let b_res = a.as_ref().and_then(|_| {
+                    group_look(&ntt, board, &s.hashes, nsac, bn, bt, promo_cands.clone(), max_pv, style, true)
+                });
+                drop(guard);
+                if let (Some((sa, da, _, _)), Some((sp, dp, _, pv))) = (a, b_res) {
+                    let b = brilliance;
+                    // a promotion is worth taking when the neutral search rates it no worse
+                    // than the best ordinary move, and it is not a mere mate-in-one shortcut
+                    // (the search already finds those): the margin is the same as for a
+                    // sacrifice, and a promotion that checks is allowed a wider one
+                    let margin = b * b / 125;
+                    let enough = if full { da >= 4 && dp + 1 >= da } else { dp >= 6 && da >= 3 };
+                    let gives_check = pv.first().map_or(false, |&m| {
+                        let mut c = board.clone();
+                        c.play_unchecked(m);
+                        !c.checkers().is_empty()
+                    });
+                    let extra = if gives_check { margin / 2 } else { 0 };
+                    let take = enough
+                        && !pv.is_empty()
+                        && sa.abs() < MATE_BOUND
+                        && sp >= sa - margin - extra
+                        && sp >= 50 - b
+                        && sa < 1000;
+                    if print_info {
+                        out!(
+                            "info string brilliancy look: underpromotion {} scores {} vs best move {} (neutral, depth {}/{}){}",
+                            pv_string(board, &pv[..1.min(pv.len())]),
+                            sp,
+                            sa,
+                            dp,
+                            da,
+                            if take { " -> played" } else { "" }
+                        );
+                    }
+                    if take {
+                        strategy_swap = true;
+                        best_move = Some(pv[0]);
+                        best_score = best_true - (sa - sp);
+                        best_sb = 0;
+                        *LAST_PV.lock().unwrap() = pv.clone();
+                        if print_info {
+                            out!("info depth {} score {} pv {}", dp, format_score(best_score), pv_string(board, &pv));
                         }
                     }
                 }
@@ -3285,6 +3538,7 @@ fn search_position_inner(
     // are untouched), and only when nothing before this (skill choice, brilliancy look)
     // already picked a move on purpose. The bonus re-ranks; it never re-values.
     if crate::human::STYLE.load(Ordering::Relaxed) > 0
+        && !strategy_swap
         && best_score.abs() < MATE_BOUND
         && n_lines > 1
         && lines.len() > 1
@@ -3517,6 +3771,7 @@ fn search_position_inner(
     // their advantage away.
     if SWINDLE.load(Ordering::Relaxed)
         && full
+        && !strategy_swap
         && !user_nodes
         && best_score <= -SWINDLE_MIN
         && best_score > -SWINDLE_MAX
