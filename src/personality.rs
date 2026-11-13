@@ -115,11 +115,14 @@ pub fn derive(s: Settings) -> Derived {
     // is what decides how far below sound a sacrifice may be, and it was measured to be far too
     // large at 340: on the same openings and 600-game draws a first-sacrifice bonus of 20 raises
     // the strict chess.com brilliant rate from 0.065 to 0.113 per game AND is ~50 Elo *stronger*
-    // head-to-head (0/40/120/220/340 give 0.113/0.092/0.093/0.078/0.065, monotone). The bonus is
-    // what buys junk *inside* the badge-shaped window: the window is conserved, the unsound share
-    // of it falls and the conversion inside it rises. The pressure ramp added on top of this bonus
-    // contributes nothing measurable (neutralising the ramp alone, base kept, changes neither the
-    // brilliant rate nor Elo at all), so it is kept for its late-game effect on the floor only.
+    // head-to-head (0/5/10/20/40/60/120/220/340 give 0.108/0.067/0.080/0.113/0.092/0.087/0.093/
+    // 0.078/0.065, peaking at 20). The bonus is what buys junk *inside* the badge-shaped window:
+    // the window is conserved, the unsound share of it falls and the conversion inside it rises.
+    // The pressure ramp added on top of this bonus is *load-bearing* once the base is small,
+    // though it was inert while the base was 340: neutralising it at base 340 changed nothing
+    // (exactly +0.000 strict/g, neutral Elo), but at base 20 it collapses the strict rate
+    // 0.113 -> 0.072 and the engine 52 -> 12 Elo. The winning shape is therefore *small early*
+    // (no junk in the badge window) *growing late* (the ramp supplies the +450 late-game bonus).
     // (An earlier version kept 240 of a 380 bonus and started the pressure at move 12; measured,
     // it gave fewer purposeful sacrifices per move in balanced positions than 4.5.0, about twice
     // the blunders, and lost about 170 Elo: tolerating four-pawn howlers is not the same as
