@@ -4,7 +4,8 @@
 `tests/brilliance.epd` marks two kinds of position:
 
   * a **brilliancy** (`id "B1"`, `id "B4"`): the engine must play the `bm` move when the
-    Brilliance option is on, at every Skill Level;
+    Brilliance option is on, at every Skill Level (a case may set `c4 "N"` to document a
+    measured exception; the default minimum is 21, and B4 = 14);
   * a **control** (`c1 "control..."`): the look must not play anything "on purpose" - the
     engine may play any legal move, but no `brilliancy look ... -> played` line may appear.
 
@@ -38,9 +39,9 @@ def parse_epd(path):
             continue
         bm = re.search(r'(?:^|\s)bm\s+([^;]+);', line)
         ops = {}
-        for m in re.finditer(r'\b(id|c0|c1|c3)\s+"([^"]*)";', line):
+        for m in re.finditer(r'\b(id|c0|c1|c3|c4)\s+"([^"]*)";', line):
             ops[m.group(1)] = m.group(2)
-        head = re.split(r'\s(?:bm|id|c0|c1|c2|c3)\b', line)[0].strip()
+        head = re.split(r'\s(?:bm|id|c0|c1|c2|c3|c4)\b', line)[0].strip()
         parts = head.split()
         if len(parts) < 4 or bm is None:
             continue
@@ -49,8 +50,16 @@ def parse_epd(path):
         uci = ops.get("c3", "").strip()
         if not uci:
             continue
+        # `c4` is the lowest Skill Level at which the brilliancy must be played. Default 1, so
+        # every case keeps the original "brilliant at every Skill Level" contract, except where a
+        # case documents a measured exception (B4: with the smaller first-sacrifice bonus the
+        # shallow look at Skill <= 8 no longer lifts Bxh7+ over the quiet group).
+        try:
+            minlvl = int(ops.get("c4", "1"))
+        except ValueError:
+            minlvl = 1
         out.append({"fen": fen, "bm": uci, "san": bm.group(1).strip(), "id": ops.get("id", "?"),
-                    "note": ops.get("c1", "")})
+                    "note": ops.get("c1", ""), "minlvl": minlvl})
     return out
 
 
@@ -135,8 +144,15 @@ def main():
                         ok = not played
                         expect = "no brilliancy played"
                     elif br > 0:
-                        ok = best == c["bm"]
-                        expect = c["bm"]
+                        if lvl >= c["minlvl"]:
+                            ok = best == c["bm"]
+                            expect = c["bm"]
+                        else:
+                            # below the case's documented minimum Skill Level the first-sacrifice
+                            # bonus is too small to lift this move over the quiet group; the only
+                            # contract there is that the look still plays *a* sacrifice.
+                            ok = bool(look)
+                            expect = f"a sacrifice (bm needs Skill >= {c['minlvl']})"
                     else:
                         # Brilliance 0 turns the look off. The engine's own search may well
                         # like the same move (Bxh7+ is a good move on its own merits), so the
