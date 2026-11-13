@@ -43,7 +43,7 @@ def once(fen, cfg, movetime):
             l = p.stdout.readline()
             if not l:
                 break
-            if "brilliancy look" in l:
+            if "brilliancy look" in l or "sacrifice-cand" in l:
                 look.append(l.strip())
             if l.startswith("bestmove"):
                 best = l.split()[1]

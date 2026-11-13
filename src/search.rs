@@ -3505,6 +3505,16 @@ fn search_position_inner(
                             db,
                             if take { " -> played" } else { "" }
                         );
+                        // On the veto branch the verdict names the QUIET move that replaced the
+                        // sacrifice, so the sacrifice's identity is lost once `best_move` is
+                        // overwritten below. Emit it here, before any swap, so the offline
+                        // recorder can judge veto quality (was the vetoed sacrifice sound?).
+                        if best_is_sac {
+                            out!(
+                                "info string brilliancy sacrifice-cand {}",
+                                pv_string(board, &[bm][..1])
+                            );
+                        }
                     }
                     if take {
                         strategy_swap = true;
