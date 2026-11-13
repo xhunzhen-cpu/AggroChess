@@ -403,6 +403,16 @@ pub fn uci_loop() {
                                 search::LOOK_VETO_SLACK.store(v.max(0), Ordering::Relaxed);
                             }
                         }
+                        "x_lookveto" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_VETO_ABS.store(v.max(0), Ordering::Relaxed);
+                            }
+                        }
+                        "x_lookvetobad" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_VETO_BAD.store(v, Ordering::Relaxed);
+                            }
+                        }
                         "x_sacgroup" => {
                             let _ = value; // retired: the widened pair measured worse (43 vs 52 played)
                         }

@@ -75,6 +75,27 @@ pub static LOOK_S2_CAP: AtomicI32 = AtomicI32::new(500);
 /// which is the gate's default and slow games. Dev-tunable so a wider slack is measured, not
 /// guessed.
 pub static LOOK_VETO_SLACK: AtomicI32 = AtomicI32::new(3);
+/// Absolute override for the veto threshold (the `+50` at Brilliance 100 in
+/// `sb2 > sa + veto`), or 0 to keep the 5.3.0 formula `300 - 5*brilliance/2`.
+///
+/// WHY: the veto's default threshold was tuned on CENTIPAWN value, not on brilliancy, and the
+/// two disagree. Measured on 151 real strict-brilliant positions (score_brilliant.py predicate)
+/// sampled 6x each - 906 runs - the veto at T=50 destroys a genuine brilliant in 10% of runs
+/// (91/906, 19 positions): the look rates the sacrifice 60-270 cp below a quiet move while SF
+/// rates it equal or better. Raising T to 130 saves 65% of those kills (91 -> 32) for -10.8
+/// cp/position (bootstrap CI [-24,-0]) while still vetoing 28 of 29 genuinely-lost sacrifices
+/// (sac <= -150 and quiet > sac+50); the one it lets through costs 305 cp and two more cost
+/// 441 and 90. The dropped vetoes are concentrated where the look itself rates the sacrifice
+/// well (sa > 100), which is exactly where it should not overrule the search's own choice.
+/// Dev-tunable so the trade is measured, not guessed; 0 keeps the shipped behaviour exactly.
+pub static LOOK_VETO_ABS: AtomicI32 = AtomicI32::new(0);
+/// A sacrifice whose own neutral score is below this is vetoed even on a small margin
+/// (`sb2 > sa + 50`), because the look is then confident and usually right that the position is
+/// lost - the trade that keeps the veto's centipawn value. Measured with `LOOK_VETO_ABS = 130`
+/// on 151 real brilliants (906 runs): the plain wide-margin rule alone let a few real blunders
+/// through; adding this clause vetoes 29 of 30 genuinely-lost sacrifices while the brilliant
+/// rescue is unchanged, at -7 cp/position instead of -11. 0 disables it (the plain rule).
+pub static LOOK_VETO_BAD: AtomicI32 = AtomicI32::new(0);
 /// how many root lines the Human Style taste compares (it re-ranks only near-equal ones)
 const HUMAN_STYLE_PV: usize = 4;
 /// How hard the last search's position was, 0..=100 (read by the Human Think Time act):
@@ -3473,7 +3494,10 @@ fn search_position_inner(
                 if let (Some((sa, da, _, _)), Some((sb2, db, _, pv))) = (a, b_res) {
                     let b = brilliance;
                     let margin = b * b / LOOK_MARGIN_DIV.load(Ordering::Relaxed).max(1);
-                    let veto = 300 - 5 * b / 2; // 75 -> 112 cp
+                    let veto = match LOOK_VETO_ABS.load(Ordering::Relaxed) {
+                        0 => 300 - 5 * b / 2, // 75 -> 112 cp
+                        t => t,               // absolute override (dev knob x_lookveto)
+                    };
                     // The promote-side floor. Reduces EXACTLY to the 5.3.0 `50 - b` at delta 0.
                     let floor = 50 - b + LOOK_FLOOR_DELTA.load(Ordering::Relaxed);
                     let quiet_cap = LOOK_QUIET_CAP.load(Ordering::Relaxed);
@@ -3497,7 +3521,15 @@ fn search_position_inner(
                     let take = enough
                         && !pv.is_empty()
                         && if best_is_sac {
-                            may_veto && sa < 300 && sb2.abs() < MATE_BOUND && sb2 > sa + veto
+                            // Veto the sacrifice when the look prefers quiet by a wide margin, OR
+                            // when the sacrifice's own score is genuinely bad (sa < LOOK_VETO_BAD)
+                            // even by a small margin - the look is confident and right about a lost
+                            // position, and that is where the veto earns its centipawns. See
+                            // LOOK_VETO_ABS for why the plain wide-margin rule lost brilliants.
+                            let bad = LOOK_VETO_BAD.load(Ordering::Relaxed);
+                            may_veto && sa < 300 && sb2.abs() < MATE_BOUND
+                                && (sb2 > sa + veto
+                                    || (bad != 0 && sa < bad && sb2 > sa + 50))
                         } else {
                             // The s2 cap guards only the PROMOTE side. On the veto branch `sa`
                             // is the sacrifice - capping it there would skip vetoes of the
