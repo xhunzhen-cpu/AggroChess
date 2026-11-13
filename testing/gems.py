@@ -79,12 +79,15 @@ def strict(r):
             and r["_q"] < STRICT_QUIET)
 
 
-def takes(r, margin, floor, cap):
-    return r["s2"] >= r["s1"] - margin and r["s2"] >= floor and r["s1"] < cap
+def takes(r, margin, floor, cap, s2cap=0):
+    """The engine's promote condition. `cap` is the quiet cap (s1 < cap); `s2cap` is
+    LOOK_S2_CAP (s2 < s2cap, 0 = off), which drops sacrifices already scoring near-winning."""
+    return (r["s2"] >= r["s1"] - margin and r["s2"] >= floor
+            and r["s1"] < cap and (s2cap == 0 or r["s2"] < s2cap))
 
 
-def run(rows, margin, floor, cap):
-    t = [r for r in rows if takes(r, margin, floor, cap)]
+def run(rows, margin, floor, cap, s2cap=0):
+    t = [r for r in rows if takes(r, margin, floor, cap, s2cap)]
     gems = [r for r in t if strict(r)]
     cost = sum(r["_q"] - r["_sac"] for r in t)
     return len(t), len(gems), cost, gems
@@ -92,7 +95,7 @@ def run(rows, margin, floor, cap):
 
 def main():
     args = sys.argv[1:]
-    rules = [(60, -100, 1000), (110, -150, 250)]
+    rules = [(60, -100, 1000)]
     if "--rules" in args:
         i = args.index("--rules")
         rules = [tuple(int(x) for x in spec.split(",")) for spec in args[i + 1].split(";")]
@@ -102,11 +105,14 @@ def main():
           f"(dropped: {dropped['vacuous']} vacuous, {dropped['terminal']} terminal, "
           f"{dropped['mate']} mate, {dropped['nofield']} missing)")
     print(f"{sum(1 for r in rows if strict(r))} hold a strict-brilliant sacrifice\n")
-    print(f"{'rule (margin/floor/cap)':<26}{'takes':>6}{'gems':>6}{'cp':>8}{'cp/gem':>8}")
-    for margin, floor, cap in rules:
-        t, g, c, _ = run(rows, margin, floor, cap)
+    print(f"{'rule (margin/floor/cap[/s2cap])':<32}{'takes':>6}{'gems':>6}{'cp':>8}{'cp/gem':>8}")
+    for rule in rules:
+        margin, floor, cap = rule[:3]
+        s2cap = rule[3] if len(rule) > 3 else 0
+        t, g, c, _ = run(rows, margin, floor, cap, s2cap)
         per = c / max(1, g)
-        print(f"{f'{margin}/{floor}/{cap}':<26}{t:>6}{g:>6}{c:>8}{per:>8.0f}")
+        label = f"{margin}/{floor}/{cap}" + (f"/{s2cap}" if s2cap else "")
+        print(f"{label:<32}{t:>6}{g:>6}{c:>8}{per:>8.0f}")
 
 
 main()
