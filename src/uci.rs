@@ -20,6 +20,86 @@ pub static PONDER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::
 /// The clocked limits of the `go ponder` in flight, applied when `ponderhit` arrives.
 static PONDER_LIMITS: std::sync::RwLock<Option<search::Limits>> = std::sync::RwLock::new(None);
 
+/// Hand-relay continuity. A GUI that relays moves by hand may send every position as a bare
+/// FEN with no move list (`position fen <board>`). Every per-game sacrifice statistic -- the
+/// win-sac ritual, chaining, the after-sacrifice decay, the decided-game pressure boost and
+/// threefold detection -- is computed from that move list, so a FEN-only relay would reset
+/// it on every move and the engine would believe it had never sacrificed. This remembers the
+/// position each search started from, the history behind it and the move it answered with,
+/// so the next FEN can be recognised as the transport of it (our move plus the reply) and
+/// the history continues instead of starting over.
+#[derive(Clone)]
+struct RelayAnchor {
+    board: Board,
+    mat_hist: Vec<i32>,
+    movers: Vec<Color>,
+    hashes: Vec<u64>,
+    mv: Option<cozy_chess::Move>,
+}
+static RELAY: std::sync::Mutex<Option<RelayAnchor>> = std::sync::Mutex::new(None);
+
+/// Record the move a search answered with, for hand-relay continuity (see `RelayAnchor`).
+fn relay_note_move(mv: cozy_chess::Move) {
+    if let Ok(mut g) = RELAY.lock() {
+        if let Some(a) = g.as_mut() {
+            a.mv = Some(mv);
+        }
+    }
+}
+
+/// If `new_board` is exactly the position after the anchor's own move and one opponent
+/// reply, return the extended history: material before each move, who moved, and position
+/// keys, with our move and the reply appended. The anchor's own position repeats the anchor
+/// unchanged (a GUI re-asking for the same FEN), and the position after only our own move
+/// also continues (the operator screenshotted before the reply). `None` for anything else.
+fn relay_transport(
+    a: &RelayAnchor,
+    new_board: &Board,
+) -> Option<(Vec<i32>, Vec<Color>, Vec<u64>, bool)> {
+    // the very position the anchor holds: keep its history exactly as it was
+    if search::rep_key(&a.board) == search::rep_key(new_board) {
+        return Some((a.mat_hist.clone(), a.movers.clone(), a.hashes.clone(), false));
+    }
+    let mv = a.mv?;
+    if !a.board.is_legal(mv) {
+        return None;
+    }
+    let mut after = a.board.clone();
+    after.play_unchecked(mv);
+    let key_mid = search::rep_key(&after);
+    let want = search::rep_key(new_board);
+    let mut mat_hist = a.mat_hist.clone();
+    let mut movers = a.movers.clone();
+    let mut hashes = a.hashes.clone();
+    // our own move
+    movers.push(a.board.side_to_move());
+    mat_hist.push(sac_material(&after));
+    hashes.push(key_mid);
+    if key_mid == want {
+        return Some((mat_hist, movers, hashes, true));
+    }
+    let mut reply = None;
+    after.generate_moves(|mvs| {
+        for r in mvs {
+            let mut b2 = after.clone();
+            b2.play_unchecked(r);
+            if search::rep_key(&b2) == want {
+                reply = Some(r);
+                return true;
+            }
+        }
+        false
+    });
+    let reply = reply?;
+    // the opponent's reply lands on the board we were given
+    let mut final_board = after.clone();
+    final_board.play_unchecked(reply);
+    movers.push(after.side_to_move());
+    mat_hist.push(sac_material(&final_board));
+    hashes.push(want);
+    Some((mat_hist, movers, hashes, true))
+}
+
 fn init_log() {
     START.get_or_init(std::time::Instant::now);
     if std::path::Path::new("aggro_debug.log").exists() {
@@ -293,6 +373,17 @@ pub fn uci_loop() {
                                 search::WIN_SAC_AT.store(v, Ordering::Relaxed);
                             }
                         }
+                        "x_lookpct" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::BRILLIANCE_PCT.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_sacgroup" => {
+                            let _ = value; // retired: the widened pair measured worse (43 vs 52 played)
+                        }
+                        "x_bookbril" => {
+                            search::BOOK_BRILLIANT.store(value.trim() == "true" || value.trim() == "1", Ordering::Relaxed);
+                        }
                         "x_winsacfloor" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::WIN_SAC_FLOOR.store(v, Ordering::Relaxed);
@@ -517,6 +608,9 @@ pub fn uci_loop() {
                 crate::skill::new_game();
                 prev_plies = 0;
                 board = Board::default();
+                if let Ok(mut g) = RELAY.lock() {
+                    *g = None;
+                }
                 history_hashes = vec![search::rep_key(&board)];
                 search::clear_global_tt();
             }
@@ -546,6 +640,11 @@ pub fn uci_loop() {
                     }
                 }
                 history_hashes.push(search::rep_key(&board));
+                // A `position fen <base> moves ...` keeps `base` around: hand relays often send
+                // the board they started from plus the moves played on it, and that base may
+                // be the continuation of the game we already know (see below).
+                let fen_base: Option<Board> =
+                    if tokens.len() >= 2 && tokens[1] == "fen" { Some(board.clone()) } else { None };
                 // material (White's view) before each move, and who moved, for sacrifice tracking
                 let mut mat_hist = vec![sac_material(&board)];
                 let mut movers = Vec::new();
@@ -571,6 +670,47 @@ pub fn uci_loop() {
                         }
                     }
                 }
+                // Hand relay: the position a relay sends may still be the continuation of the
+                // one we last searched, either as a bare FEN or as a base FEN plus the moves
+                // played on it. Splice the remembered history back in so the game's sacrifice
+                // state survives the relay instead of resetting on every move.
+                let mut relay_note: Option<String> = None;
+                let anchor = RELAY.lock().ok().and_then(|g| g.as_ref().cloned());
+                if let Some(a) = anchor {
+                    if search::rep_key(&a.board) == search::rep_key(&board) {
+                        // the position we already hold, however it was spelled: keep the
+                        // history we recorded for it (also what makes a re-query harmless)
+                        mat_hist = a.mat_hist.clone();
+                        movers = a.movers.clone();
+                        history_hashes = a.hashes.clone();
+                    } else if moves_index.is_none() {
+                        // `history_hashes` currently holds only this FEN's key
+                        if let Some((mh, mv2, hs, fresh)) = relay_transport(&a, &board) {
+                            mat_hist = mh;
+                            movers = mv2;
+                            history_hashes = hs;
+                            if fresh {
+                                relay_note = Some(format!("info string relay: history continued ({} plies)", movers.len()));
+                            }
+                        }
+                    } else if !movers.is_empty() {
+                        // `position fen <base> moves <...>`: if the base continues our game,
+                        // put our history in front of the moves this command supplied. Here
+                        // the identical-board prefix counts too: the base is often exactly
+                        // the position we last searched, with the moves played on it.
+                        if let Some(fb) = fen_base.as_ref() {
+                            if let Some((mut mh, mut mv2, mut hs, _)) = relay_transport(&a, fb) {
+                                mh.extend_from_slice(&mat_hist[1..]);
+                                mv2.extend_from_slice(&movers);
+                                hs.extend_from_slice(&history_hashes[1..]);
+                                mat_hist = mh;
+                                movers = mv2;
+                                history_hashes = hs;
+                                relay_note = Some(format!("info string relay: history continued ({} plies)", movers.len()));
+                            }
+                        }
+                    }
+                }
                 let (sacs, last_sac) = count_sacrifices_ex(&mat_hist, &movers);
                 search::GAME_SACS[0].store(sacs[0], Ordering::Relaxed);
                 search::GAME_SACS[1].store(sacs[1], Ordering::Relaxed);
@@ -590,6 +730,34 @@ pub fn uci_loop() {
                     crate::skill::new_game();
                 }
                 prev_plies = movers.len();
+                if let Some(note) = relay_note {
+                    out!("{}", note);
+                }
+                if std::env::var_os("AGGRO_RELAYDBG").is_some() {
+                    out!(
+                        "info string relay state: plies {} sacs [{}, {}] ago [{}, {}]",
+                        movers.len(),
+                        search::GAME_SACS[0].load(Ordering::Relaxed),
+                        search::GAME_SACS[1].load(Ordering::Relaxed),
+                        search::LAST_SAC_AGO[0].load(Ordering::Relaxed),
+                        search::LAST_SAC_AGO[1].load(Ordering::Relaxed)
+                    );
+                }
+                // remember this position so a following bare FEN can continue the history.
+                // A re-send of the very position already held keeps its recorded move, so a
+                // re-query cannot break the relay chain.
+                if let Ok(mut g) = RELAY.lock() {
+                    let kept = g.as_ref().and_then(|a| {
+                        if search::rep_key(&a.board) == search::rep_key(&board) { a.mv } else { None }
+                    });
+                    *g = Some(RelayAnchor {
+                        board: board.clone(),
+                        mat_hist,
+                        movers,
+                        hashes: history_hashes.clone(),
+                        mv: kept,
+                    });
+                }
             }
             "go" => {
                 stop_and_join(&stop_flag, &mut search_thread);
@@ -667,6 +835,9 @@ pub fn uci_loop() {
 
                 // Opening book (only for normal timed games / plain "go"). A weakened engine
                 // (Skill Level) leaves its book after a level-dependent number of plies.
+                // `book_hold` is the book's move when the position is searched anyway because a
+                // sacrifice candidate exists (see below): it is kept unless the look promotes.
+                let mut book_hold: Option<cozy_chess::Move> = None;
                 let game_ply = 2 * (board.fullmove_number().max(1) as u32 - 1) + (board.side_to_move() == Color::Black) as u32;
                 let book_ok = crate::skill::params().map_or(true, |w| w.book_plies == 0 || game_ply < w.book_plies);
                 if own_book && book_ok && limits.depth.is_none() && limits.nodes.is_none() && !infinite && !ponder && searchmoves.is_empty() {
@@ -676,10 +847,31 @@ pub fn uci_loop() {
                     if let Some(bm) = book.as_ref().and_then(|b| b.get_move(&board)) {
                         if let Ok(mv) = cozy_chess::util::parse_uci_move(&board, &bm) {
                             if board.is_legal(mv) {
-                                out!("info string book move");
-                                out!("bestmove {}", cozy_chess::util::display_uci_move(&board, mv));
-                                let _ = io::stdout().flush();
-                                continue;
+                                // Brilliance: a book position may hold a sound sacrifice, but
+                                // the book branch returns before any search runs, so the
+                                // brilliancy look never sees the first moves of the game. When
+                                // Brilliance is on and the position has a static sacrifice
+                                // candidate, search anyway; the book move is kept unless the
+                                // look deliberately promotes a sacrifice over it.
+                                let bril = search::BRILLIANCE.load(Ordering::Relaxed) > 0
+                                    && search::BOOK_BRILLIANT.load(Ordering::Relaxed);
+                                let sac_here = bril && {
+                                    let mut root = Vec::new();
+                                    board.generate_moves(|mvs| {
+                                        root.extend(mvs);
+                                        false
+                                    });
+                                    !crate::brilliant::candidates(&board, &root).is_empty()
+                                };
+                                if !sac_here {
+                                    relay_note_move(mv);
+                                    out!("info string book move");
+                                    out!("bestmove {}", cozy_chess::util::display_uci_move(&board, mv));
+                                    let _ = io::stdout().flush();
+                                    continue;
+                                }
+                                // search it: fall through with the book move remembered
+                                book_hold = Some(mv);
                             }
                         }
                     }
@@ -864,7 +1056,17 @@ pub fn uci_loop() {
                                 }
                             }
                             match best {
-                                Some(mv) => out!("bestmove {}", cozy_chess::util::display_uci_move(&search_board, mv)),
+                                Some(mv) => {
+                                    // Brilliance/book: the position was searched only because a
+                                    // sacrifice candidate existed, so unless the look promoted a
+                                    // sacrifice the book move still stands.
+                                    let mv = match book_hold {
+                                        Some(bm) if !search::LOOK_PLAYED.load(Ordering::Relaxed) => bm,
+                                        _ => mv,
+                                    };
+                                    relay_note_move(mv);
+                                    out!("bestmove {}", cozy_chess::util::display_uci_move(&search_board, mv))
+                                }
                                 None => out!("bestmove 0000"),
                             }
                             let _ = io::stdout().flush();
@@ -1037,4 +1239,98 @@ fn is_user_option(name: &str) -> bool {
             | "relay hint"
             | "bookpath"
     )
+}
+
+#[cfg(test)]
+mod relay_tests {
+    use super::*;
+    use cozy_chess::Board;
+
+    fn mv(b: &Board, uci: &str) -> cozy_chess::Move {
+        cozy_chess::util::parse_uci_move(b, uci).expect("legal test move")
+    }
+
+    fn anchor_after(moves: &[&str]) -> RelayAnchor {
+        let mut board = Board::default();
+        let mut mat_hist = vec![sac_material(&board)];
+        let mut movers = Vec::new();
+        let mut hashes = vec![search::rep_key(&board)];
+        for m in moves {
+            let m = mv(&board, m);
+            movers.push(board.side_to_move());
+            board.play_unchecked(m);
+            mat_hist.push(sac_material(&board));
+            hashes.push(search::rep_key(&board));
+        }
+        RelayAnchor { board, mat_hist, movers, hashes, mv: None }
+    }
+
+    #[test]
+    fn relay_continues_after_our_move_and_a_reply() {
+        let mut a = anchor_after(&["e2e4", "e7e5", "g1f3", "b8c6"]);
+        a.mv = Some(mv(&a.board, "f1b5"));
+        let mut after = a.board.clone();
+        after.play_unchecked(a.mv.unwrap());
+        after.play_unchecked(mv(&after, "a7a6"));
+        let (mat, movers, hashes, fresh) =
+            relay_transport(&a, &after).expect("our move plus the reply must splice");
+        assert!(fresh);
+        assert_eq!(movers.len(), 6, "4 plies + our move + the reply");
+        assert_eq!(hashes.len(), mat.len());
+        assert_eq!(*hashes.last().unwrap(), search::rep_key(&after));
+        assert_eq!(movers[4], cozy_chess::Color::White);
+        assert_eq!(movers[5], cozy_chess::Color::Black);
+    }
+
+    #[test]
+    fn relay_accepts_the_board_of_our_own_move_alone() {
+        let mut a = anchor_after(&["e2e4"]);
+        a.mv = Some(mv(&a.board, "d7d5"));
+        let mut after = a.board.clone();
+        after.play_unchecked(a.mv.unwrap());
+        let (_, movers, _, fresh) = relay_transport(&a, &after).expect("our move alone splices");
+        assert!(fresh);
+        assert_eq!(movers.len(), 2);
+    }
+
+    #[test]
+    fn relay_repeats_the_anchor_position_unchanged() {
+        let mut a = anchor_after(&["e2e4", "e7e5"]);
+        a.mv = Some(mv(&a.board, "g1f3"));
+        let (mat, movers, hashes, fresh) =
+            relay_transport(&a, &a.board.clone()).expect("the anchor's own board matches");
+        assert!(!fresh, "a re-send must not be announced as new history");
+        assert_eq!(movers, a.movers);
+        assert_eq!(mat, a.mat_hist);
+        assert_eq!(hashes, a.hashes);
+    }
+
+    #[test]
+    fn relay_refuses_a_position_two_replies_away() {
+        let mut a = anchor_after(&["e2e4", "e7e5"]);
+        a.mv = Some(mv(&a.board, "g1f3"));
+        // g1f3, b8c6, f1b5: our move and TWO replies
+        let mut far = a.board.clone();
+        for m in ["g1f3", "b8c6", "f1b5"] {
+            let m = mv(&far, m);
+            far.play_unchecked(m);
+        }
+        assert!(relay_transport(&a, &far).is_none(),
+                "only one reply may be bridged, so a longer gap must not splice");
+    }
+
+    #[test]
+    fn relay_keeps_the_sacrifice_count_across_a_spliced_history() {
+        // a real sequence with a piece sacrifice: 5...Nxe4-style give-away
+        let a = anchor_after(&["d2d4", "d7d5", "c2c4", "e7e6", "b1c3", "g8f6", "c4d5", "e6d5"]);
+        let mut a = a;
+        a.mv = Some(mv(&a.board, "c3d5")); // Nxd5: heavy material for a pawn
+        let mut after = a.board.clone();
+        after.play_unchecked(a.mv.unwrap());
+        let reply = mv(&after, "f6d5");
+        after.play_unchecked(reply);
+        let (mat, movers, _, _) = relay_transport(&a, &after).expect("splices");
+        let (sacs, _) = count_sacrifices_ex(&mat, &movers);
+        assert!(sacs[0] > 0, "the spliced history must remember the sacrifice");
+    }
 }

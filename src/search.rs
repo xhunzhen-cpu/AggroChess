@@ -756,6 +756,10 @@ pub fn sac_params_for(board: &Board) -> SacParams {
         } else if after >= 0 {
             p.bonus = after.min(p.bonus);
         }
+        // Keeping the pressure ramp's classification after a sacrifice (`any` + one attack
+        // unit) was measured too: 0.075-0.108 brilliant/g over 120 games against 0.142 for
+        // the plain after-sacrifice level, so a second sacrifice of a game must still earn
+        // its evidence.
         return p;
     }
     let moves = board.fullmove_number() as i32 - PRESSURE_START.load(Ordering::Relaxed);
@@ -812,6 +816,18 @@ pub static ROOT_FILTER: std::sync::Mutex<Vec<Move>> = std::sync::Mutex::new(Vec:
 
 /// Root sacrifices that fail low in the null-window search are searched again as PV moves.
 pub static SAC_PV: AtomicBool = AtomicBool::new(true);
+
+/// Set by the brilliancy look when it deliberately replaced the search's move with a
+/// sacrifice. The opening-book path in `uci.rs` reads it to decide whether a deliberate
+/// brilliancy may override the book move; it is cleared at the start of every search.
+pub static LOOK_PLAYED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the opening book yields to the brilliancy look: a book position that has a static
+/// sacrifice candidate is searched anyway, and the book move is kept unless the look promotes
+/// a sacrifice over it. Measured 120 games (Nov 2026): identical brilliants per game
+/// (0.142 vs 0.142) and ~44 Elo worse than the plain book answer, so it is off by default;
+/// `x_bookbril=true` re-enables it for A/B.
+pub static BOOK_BRILLIANT: AtomicBool = AtomicBool::new(false);
 
 /// Root moves that leave material hanging (not only the moved piece) count as sacrifices
 /// (Speculative Sacrifices; 4.5.0: off).
@@ -2980,6 +2996,7 @@ fn search_position_inner(
     // set when a deliberate later stage (brilliancy look, ...) picked the move on purpose:
     // the Human Style taste and the swindle must then leave it alone
     let mut strategy_swap = false;
+    LOOK_PLAYED.store(false, Ordering::Relaxed);
     let mut prev_best: Option<Move> = None;
     let mut stability = 0;
     let mut prev_score = 0;
@@ -3438,6 +3455,9 @@ fn search_position_inner(
                     }
                     if take {
                         strategy_swap = true;
+                        // a sacrifice the neutral look chose over the search's own move:
+                        // the opening-book path may let this override the book
+                        LOOK_PLAYED.store(!best_is_sac, Ordering::Relaxed);
                         best_move = Some(pv[0]);
                         // the main search's view of the new move is not known: keep its score
                         // scale (objective, no bonus)
