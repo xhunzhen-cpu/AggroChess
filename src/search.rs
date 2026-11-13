@@ -33,6 +33,40 @@ pub const BRILLIANCE_DEFAULT: i32 = 100;
 pub static BRILLIANCE: AtomicI32 = AtomicI32::new(BRILLIANCE_DEFAULT);
 /// share of the move's time kept back for the brilliancy look (percent)
 pub static BRILLIANCE_PCT: AtomicI32 = AtomicI32::new(30);
+/// The look's promote-side margin: a sacrifice is taken when its neutral score is within
+/// `margin = brilliance^2 / LOOK_MARGIN_DIV` of the quiet moves. The 5.3.0 value was 125
+/// (80 cp at Brilliance 100); 167 gives 60 cp. Measured over 1089 unique positions from three
+/// lever runs, 60 cp finds more strict-brilliant sacrifices (15 vs 13) at 30% less centipawn
+/// cost, and improves or ties on each run separately. Dev-tunable for A/B.
+pub static LOOK_MARGIN_DIV: AtomicI32 = AtomicI32::new(167);
+/// The look's promote-side floor: a sacrifice is taken only if its neutral score reaches
+/// `50 - brilliance + delta`, so `delta = 0` is exactly the 5.3.0 formula (-50 at Brilliance
+/// 100). Measured over the same 1089 positions, `delta = -50` (floor -100) admits the gems the
+/// 5.3.0 floor missed without re-admitting the near-hopeless sacrifices a much lower floor
+/// lets through. Dev-tunable so the pair can be A/B'd without a rebuild.
+pub static LOOK_FLOOR_DELTA: AtomicI32 = AtomicI32::new(-50);
+/// The look's promote-side quiet cap: a position is not a brilliancy site when the engine's
+/// own best quiet move already scores this high, because the strict-brilliant bar is
+/// `sf_before < +300`. The 5.3.0 value was 1000. Measured on 604 unique positions, the
+/// `s1 >= 300` sites carry 40% of the promote rule's centipawn cost for 2 of its 9
+/// strict-brilliant sacrifices, so a cap this low is not by itself a win - it is tunable so
+/// the cap and the floor can be searched together rather than argued about.
+pub static LOOK_QUIET_CAP: AtomicI32 = AtomicI32::new(1000);
+/// The look's veto-side depth slack. The sacrifice is searched as ONE move and the quiet
+/// moves as a WHOLE GROUP on the same half-budget, so the quiet group finishes several plies
+/// shallower - precisely in the wide positions where a veto matters. The 5.3.0 guard was
+/// `db >= da - 1` (slack 1), which therefore fails open: the veto is silently skipped and an
+/// unsound sacrifice is played. Measured on the 109-position am gate at 2 s/move (3 repeats
+/// per position): slack 1 leaves 3 of 327 runs playing a move the gate rejects, slack 3 leaves
+/// 0 of 327. Slack 2 halves it, slack 3 removes it. On the single worst entry (V4-31) slack 1
+/// breaks 16 of 30 runs and slack 3 breaks 0 of 30; at slack 3 the wide side still reaches
+/// 13-15 plies on these positions, so the evidence a veto rests on is not thin.
+/// SCOPE, measured: at the 300 ms hand-relay regime the depth gap is ~0 (462 of 469 recorded
+/// veto sites already pass the old guard, and none of the 7 that fail would change a move), so
+/// this changes nothing in that regime - usually 0 breaks either way. It bites at 1-2 s/move,
+/// which is the gate's default and slow games. Dev-tunable so a wider slack is measured, not
+/// guessed.
+pub static LOOK_VETO_SLACK: AtomicI32 = AtomicI32::new(3);
 /// how many root lines the Human Style taste compares (it re-ranks only near-equal ones)
 const HUMAN_STYLE_PV: usize = 4;
 /// How hard the last search's position was, 0..=100 (read by the Human Think Time act):
@@ -3430,10 +3464,21 @@ fn search_position_inner(
                 drop(guard);
                 if let (Some((sa, da, _, _)), Some((sb2, db, _, pv))) = (a, b_res) {
                     let b = brilliance;
-                    let margin = b * b / 125; // 75 -> 45 cp
+                    let margin = b * b / LOOK_MARGIN_DIV.load(Ordering::Relaxed).max(1);
                     let veto = 300 - 5 * b / 2; // 75 -> 112 cp
-                    let floor = 50 - b; // 75 -> -25 cp
-                    let enough = if full { da >= 5 && db >= da - 1 } else { da >= 2 && db >= 1 };
+                    // The promote-side floor. Reduces EXACTLY to the 5.3.0 `50 - b` at delta 0.
+                    let floor = 50 - b + LOOK_FLOOR_DELTA.load(Ordering::Relaxed);
+                    let quiet_cap = LOOK_QUIET_CAP.load(Ordering::Relaxed);
+                    // The depth guard. Its two sides are not symmetric: on the veto branch `a`
+                    // is the sacrifice searched ALONE and `b` is the whole quiet GROUP, so the
+                    // wide side lands a few plies shallower. The slack widens only that side;
+                    // the promote branch keeps the 5.3.0 guard (see LOOK_VETO_SLACK).
+                    let slack = LOOK_VETO_SLACK.load(Ordering::Relaxed).max(0);
+                    let enough = if full {
+                        da >= 5 && db >= da - if best_is_sac { slack } else { 1 }
+                    } else {
+                        da >= 2 && db >= 1
+                    };
                     // A weakened engine's neutral look is shallow, and a shallow look cannot
                     // tell a sound sacrifice from an unsound one nearly well enough to veto
                     // one (measured: at level 8 a depth-3 look rejected the Greek gift). So at
@@ -3446,7 +3491,7 @@ fn search_position_inner(
                             may_veto && sa < 300 && sb2.abs() < MATE_BOUND && sb2 > sa + veto
                         } else {
                             sb2 >= MATE_BOUND
-                                || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < 1000)
+                                || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < quiet_cap)
                         };
                     if print_info {
                         out!(

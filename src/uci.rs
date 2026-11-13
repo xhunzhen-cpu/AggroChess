@@ -378,6 +378,26 @@ pub fn uci_loop() {
                                 search::BRILLIANCE_PCT.store(v, Ordering::Relaxed);
                             }
                         }
+                        "x_lookfloor" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_FLOOR_DELTA.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_lookmdiv" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_MARGIN_DIV.store(v.max(1), Ordering::Relaxed);
+                            }
+                        }
+                        "x_lookcap" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_QUIET_CAP.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_vetoslack" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_VETO_SLACK.store(v.max(0), Ordering::Relaxed);
+                            }
+                        }
                         "x_sacgroup" => {
                             let _ = value; // retired: the widened pair measured worse (43 vs 52 played)
                         }
