@@ -393,6 +393,11 @@ pub fn uci_loop() {
                                 search::LOOK_QUIET_CAP.store(v, Ordering::Relaxed);
                             }
                         }
+                        "x_looks2cap" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_S2_CAP.store(v.max(0), Ordering::Relaxed);
+                            }
+                        }
                         "x_vetoslack" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::LOOK_VETO_SLACK.store(v.max(0), Ordering::Relaxed);

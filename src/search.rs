@@ -52,6 +52,14 @@ pub static LOOK_FLOOR_DELTA: AtomicI32 = AtomicI32::new(-50);
 /// strict-brilliant sacrifices, so a cap this low is not by itself a win - it is tunable so
 /// the cap and the floor can be searched together rather than argued about.
 pub static LOOK_QUIET_CAP: AtomicI32 = AtomicI32::new(1000);
+/// The look's promote-side absolution cap: a sacrifice whose neutral score is already this
+/// high is a near-winning move, not a brilliancy. The strict-brilliant predicate requires
+/// `sf_after < +300`, so a sacrifice scoring +500 in the look's own neutral search can never
+/// be one. Measured on held-out data: capping at 500 kept all 15 strict-brilliant sacrifices
+/// and cut the promote rule's centipawn cost from 997 to 41 (a paired bootstrap over games
+/// puts the saving at -948 cp, 95% CI [-1790,-248], with zero gems lost, CI [0,0]). On the
+/// pooled set the equivalent cap is no worse. 0 disables it. Dev option `x_looks2cap`.
+pub static LOOK_S2_CAP: AtomicI32 = AtomicI32::new(500);
 /// The look's veto-side depth slack. The sacrifice is searched as ONE move and the quiet
 /// moves as a WHOLE GROUP on the same half-budget, so the quiet group finishes several plies
 /// shallower - precisely in the wide positions where a veto matters. The 5.3.0 guard was
@@ -3469,6 +3477,7 @@ fn search_position_inner(
                     // The promote-side floor. Reduces EXACTLY to the 5.3.0 `50 - b` at delta 0.
                     let floor = 50 - b + LOOK_FLOOR_DELTA.load(Ordering::Relaxed);
                     let quiet_cap = LOOK_QUIET_CAP.load(Ordering::Relaxed);
+                    let s2cap = LOOK_S2_CAP.load(Ordering::Relaxed);
                     // The depth guard. Its two sides are not symmetric: on the veto branch `a`
                     // is the sacrifice searched ALONE and `b` is the whole quiet GROUP, so the
                     // wide side lands a few plies shallower. The slack widens only that side;
@@ -3490,8 +3499,12 @@ fn search_position_inner(
                         && if best_is_sac {
                             may_veto && sa < 300 && sb2.abs() < MATE_BOUND && sb2 > sa + veto
                         } else {
-                            sb2 >= MATE_BOUND
-                                || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < quiet_cap)
+                            // The s2 cap guards only the PROMOTE side. On the veto branch `sa`
+                            // is the sacrifice - capping it there would skip vetoes of the
+                            // very sacrifices that most need one (fail open).
+                            (s2cap == 0 || sa < s2cap)
+                                && (sb2 >= MATE_BOUND
+                                    || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < quiet_cap))
                         };
                     if print_info {
                         out!(
