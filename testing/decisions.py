@@ -54,7 +54,7 @@ def engine(prefix, brilliance):
     s("ucinewgame")
     s("position startpos" + (" moves " + " ".join(prefix) if prefix else ""))
     s("go movetime 300")
-    look, bm = None, None
+    look, bm, cand = None, None, None
     while True:
         l = p.stdout.readline()
         if not l:
@@ -62,6 +62,8 @@ def engine(prefix, brilliance):
         l = l.strip()
         if "brilliancy look:" in l:
             look = l
+        if "sacrifice-cand" in l:
+            cand = l.split()[-1]
         if l.startswith("bestmove"):
             bm = l.split()[1]
             break
@@ -70,7 +72,7 @@ def engine(prefix, brilliance):
         p.wait(2)
     except Exception:
         p.kill()
-    return look, bm
+    return look, bm, cand
 
 
 def sf_scores(prefix, moves, nodes):
@@ -115,21 +117,25 @@ def sf_scores(prefix, moves, nodes):
 
 
 def one(prefix, gid, ply, nodes):
-    look, bm = engine(prefix, 100)
+    look, bm, cand = engine(prefix, 100)
     if not look or not bm:
         return None
     m = LOOK.search(look)
     if not m:
         return None
     branch, mv, s2, s1, da, db, played = m.groups()
-    _, alt = engine(prefix, 0)
-    movs = list(dict.fromkeys([mv, bm] + ([alt] if alt else [])))
+    _, alt, _ = engine(prefix, 0)
+    # On the veto branch the verdict names the quiet replacement, so the sacrifice's identity
+    # comes from the `sacrifice-cand` line; on the promote branch it is the verdict's move.
+    sac_mv = mv if branch == "sacrifice" else cand
+    movs = list(dict.fromkeys([mv, bm, sac_mv] + ([alt] if alt else []) + ([cand] if cand else [])))
+    movs = [x for x in movs if x]
     ev = sf_scores(prefix, movs, nodes)
     if ev.get(mv) is None or ev.get(bm) is None:
         return None
     return {"game": gid, "ply": ply, "prefix": prefix, "branch": branch,
             "look_move": mv, "s2": int(s2), "s1": int(s1), "da": int(da), "db": int(db),
-            "played": bool(played), "bm": bm, "alt": alt, "sf": ev}
+            "played": bool(played), "bm": bm, "alt": alt, "sac": sac_mv, "sf": ev}
 
 
 def main():
