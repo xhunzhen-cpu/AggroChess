@@ -62,6 +62,14 @@ def sound(r):
             and r["_q"] < STRICT_QUIET)
 
 
+def decided_right(r):
+    """Did the veto make the better choice? On this branch s1 = the sacrifice's score, s2 =
+    the quiet move's. A fired veto played quiet, so it was right when quiet > sacrifice; a
+    declined veto played the sacrifice, so it was right when sacrifice > quiet. Getting this
+    backwards is easy - see the `sac`/`look_move` map above."""
+    return (r["_q"] > r["_sac"]) if r["played"] else (r["_sac"] >= r["_q"])
+
+
 def main():
     paths = [a for a in sys.argv[1:] if not a.startswith("--")]
     rows, drop = load(paths)
@@ -70,32 +78,32 @@ def main():
         return
     fired = [r for r in rows if r["played"]]
     kept = [r for r in rows if not r["played"]]
-    snd = [r for r in rows if sound(r)]
     print(f"{len(rows)} usable veto sites "
           f"(dropped: {drop['nosac']} no-sac, {drop['nofield']} missing SF, {drop['same']} same)\n")
 
-    def rate(name, rs):
-        if not rs:
-            print(f"  {name:<28}   0")
-            return
-        s = sum(1 for r in rs if sound(r))
-        print(f"  {name:<28} {len(rs):>4} sites, {s:>3} sound sacrifices ({100*s/len(rs):5.1f}%)")
+    print(f"veto fired {len(fired)}, declined {len(kept)}")
+    right = sum(1 for r in rows if decided_right(r))
+    print(f"decision accuracy {100*right/len(rows):.1f}% ({right}/{len(rows)})\n")
 
-    print("veto behaviour:")
-    rate("all sites", rows)
-    rate("veto FIRED (quiet played)", fired)
-    rate("veto declined (sac kept)", kept)
-    print()
-    if fired:
-        wrong = [r for r in fired if sound(r)]
-        print(f"vetoes of a SOUND sacrifice (lost brilliancies): {len(wrong)}/{len(fired)}")
-        for r in wrong[:20]:
-            print(f"  g{r['game']} p{r['ply']:<3} vetoed {r['sac']} "
-                  f"(SF {r['_sac']:+5.0f}, quiet {r['look_move']} SF {r['_q']:+5.0f}, "
-                  f"gap {r['_q']-r['_sac']:+5.0f})  look: s1={r['s1']} s2={r['s2']}")
-    if kept:
-        bad = [r for r in kept if not sound(r)]
-        print(f"\nkept unsound sacrifices (blunders let through): {len(bad)}/{len(kept)}")
+    def net(r):
+        # SF(played) - SF(counterfactual); positive means the decision helped
+        return (r["_q"] - r["_sac"]) if r["played"] else (r["_sac"] - r["_q"])
+
+    for name, rs in (("fired", fired), ("declined", kept), ("all", rows)):
+        if not rs:
+            continue
+        nets = [net(r) for r in rs]
+        mean = sum(nets) / len(nets)
+        helped = sum(1 for x in nets if x > 0)
+        print(f"  {name:<9} n={len(rs):<3} mean net {mean:+7.1f} cp  helped {helped}/{len(rs)}")
+
+    wrong = [r for r in rows if not decided_right(r)]
+    if wrong:
+        print(f"\nwrong decisions ({len(wrong)}); loss = |SF(played) - SF(best)|:")
+        for r in sorted(wrong, key=lambda x: abs(net(x))):
+            print(f"  g{r['game']} p{r['ply']:<3} {'VETO->quiet' if r['played'] else 'kept sac':<12} "
+                  f"sac {r['sac']} SF{r['_sac']:+5.0f} vs quiet {r['look_move']} SF{r['_q']:+5.0f} "
+                  f"loss {abs(net(r)):+5.0f}  look d={r['s2']-r['s1']:+5d}")
 
 
 main()
