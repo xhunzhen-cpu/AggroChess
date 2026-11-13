@@ -94,7 +94,13 @@ pub fn is_sacrifice(board: &Board, m: Move) -> bool {
     }
     let mut child = board.clone();
     child.play_unchecked(m);
-    crate::search::leaves_material_at(&child, 250)
+    if crate::search::LOOK_LEAVE_DEDUP.load(std::sync::atomic::Ordering::Relaxed)
+        && crate::search::leaves_material_at(board, crate::search::LOOK_LEAVE_GAIN.load(std::sync::atomic::Ordering::Relaxed))
+    {
+        // the material was already hanging before this move: it gave nothing away
+        return false;
+    }
+    crate::search::leaves_material_at(&child, crate::search::LOOK_LEAVE_GAIN.load(std::sync::atomic::Ordering::Relaxed))
 }
 
 /// The brilliancy candidates among the legal root moves, in move order.

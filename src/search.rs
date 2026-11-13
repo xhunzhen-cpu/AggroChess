@@ -60,6 +60,42 @@ pub static LOOK_QUIET_CAP: AtomicI32 = AtomicI32::new(1000);
 /// puts the saving at -948 cp, 95% CI [-1790,-248], with zero gems lost, CI [0,0]). On the
 /// pooled set the equivalent cap is no worse. 0 disables it. Dev option `x_looks2cap`.
 pub static LOOK_S2_CAP: AtomicI32 = AtomicI32::new(500);
+/// Whether the promote-side cap reads the SACRIFICE's neutral score (the documented intent:
+/// "a sacrifice whose neutral score is already this high is a near-winning move") or, as the
+/// 5.4.0 code did, the QUIET group's score. The shipped code applied it to the quiet score,
+/// which is a second quiet-side cap: on the recorded site data that dropped 94 promote sites
+/// whose quiet move scored >=500 while it promoted 3 sacrifices whose own score was >=500
+/// (g=595/783/542 with quiet 327/776/376) that the doc says must never be promoted. Default
+/// true = the documented operand (the SACRIFICE's score, `sb2`); false = the 5.4.0 behaviour
+/// (the QUIET group's score, `sa`). Default false so the binary is behaviourally identical to
+/// 5.4.0 until a match measures the fix; `x_s2onquiet=true` is the candidate.
+pub static LOOK_S2_ON_QUIET: AtomicBool = AtomicBool::new(false);
+/// The look's `neutral()` check-pruning margin for the engine's own checks (see SacParams).
+/// The neutral comparison is supposed to remove personality bias, but `neutral()` kept
+/// `check_see = 120`, while a real personality uses `200 + 3*(appetite-50)` = 335 at the rig's
+/// Sacrifice Appetite 95. Since `search()` prunes the engine's own checking moves with
+/// threshold `-check_see * depth`, the "neutral" look pruned the sacrifice's own checks ~3x
+/// harder than the real search, under-rating exactly the continuations a sacrifice lives on -
+/// which biases BOTH the veto (spurious vetoes) and the promote margin (missed promotions)
+/// against the sacrifice. 120 = the 5.4.0 neutral; a large value disables the pruning. Dev
+/// option `x_lookchecksee`.
+pub static LOOK_NEUTRAL_CHECK_SEE: AtomicI32 = AtomicI32::new(120);
+/// The look's `neutral()` sacrifice-extension depth (see SacParams::ext_depth). 4 = the 5.4.0
+/// neutral, which delays the sacrifice extension one ply later than the real personality's 3
+/// at high appetite. Dev option `x_lookextdepth`.
+pub static LOOK_NEUTRAL_EXT_DEPTH: AtomicI32 = AtomicI32::new(4);
+/// The `leaves_material_at` gain for the brilliancy look's candidate nomination (brilliant.rs
+/// `is_sacrifice`). 250 = the 5.4.0 value. Raising nominations is the only way to *raise* the
+/// look's recall - a move the classifier never nominates can never be promoted - but every
+/// nomination also shrinks the quiet comparison group, so this is measured, not guessed.
+/// Dev option `x_lookleave`.
+pub static LOOK_LEAVE_GAIN: AtomicI32 = AtomicI32::new(250);
+/// When true, the leave clause only counts a move that *creates* the hang: if the parent
+/// position already leaves >= `LOOK_LEAVE_GAIN` hanging, the clause is skipped, because the
+/// move gave nothing away. 5.4.0 (false) nominates every move whenever something is already
+/// loose, which on the gold set supplied 60.7% of all nominations and nominated >=80% of the
+/// legal moves in 41 of 151 positions. Dev option `x_lookleavededup`.
+pub static LOOK_LEAVE_DEDUP: AtomicBool = AtomicBool::new(false);
 /// The look's veto-side depth slack. The sacrifice is searched as ONE move and the quiet
 /// moves as a WHOLE GROUP on the same half-budget, so the quiet group finishes several plies
 /// shallower - precisely in the wide positions where a veto matters. The 5.3.0 guard was
@@ -96,6 +132,16 @@ pub static LOOK_VETO_ABS: AtomicI32 = AtomicI32::new(0);
 /// through; adding this clause vetoes 29 of 30 genuinely-lost sacrifices while the brilliant
 /// rescue is unchanged, at -7 cp/position instead of -11. 0 disables it (the plain rule).
 pub static LOOK_VETO_BAD: AtomicI32 = AtomicI32::new(0);
+/// Symmetric veto branch. The 5.4.0 veto compares the search's own sacrifice against the whole
+/// quiet group (`mine = vec![bm]`), so when that one sacrifice is bad the look swaps to a quiet
+/// move even though a BETTER sacrifice sits unsearched in `bril_cands`. Replaying all 87 piece
+/// sacrifices of a 200-game match: on the veto branch the gold move was itself a candidate in
+/// 35 of 35 runs, and in every case the look compared {the wrong sacrifice} vs {quiet} and never
+/// {the wrong sacrifice} vs {the right sacrifice}. With this on, the veto branch searches the
+/// whole sacrifice group instead of the single move: if the best sacrifice beats the search's
+/// choice, the look swaps to THAT (a promotion), and only swaps to quiet when quiet wins.
+/// false keeps the shipped behaviour exactly.
+pub static LOOK_SYM_VETO: AtomicBool = AtomicBool::new(false);
 /// how many root lines the Human Style taste compares (it re-ranks only near-equal ones)
 const HUMAN_STYLE_PV: usize = 4;
 /// How hard the last search's position was, 0..=100 (read by the Human Think Time act):
@@ -783,6 +829,24 @@ pub static WIN_SAC_FLOOR: AtomicI32 = AtomicI32::new(300);
 /// ...and far ahead, the bonus grows with the lead (part of the margin above the floor), since a
 /// stretched evaluation makes every give-away look dearer than its material.
 pub static WIN_SAC_NOW: AtomicBool = AtomicBool::new(true);
+/// Dev knob (x_lostclamp): when the engine is already behind, the pressure floor is dropped to
+/// `own - LOST_CLAMP_SLACK`, i.e. lines that merely recover a little of the deficit earn the
+/// sacrifice bonus. That is a licence to sacrifice from lost positions -- the largest junk
+/// bucket of the badge funnel ("drop: sf_after <= -150", 268 of 431 eligible-window events).
+/// 250 = shipped behaviour; -1 disables the clamp entirely (the floor is never lowered on account
+/// of being behind), and 0 makes the clamp strict (the floor becomes `own` exactly).
+pub static LOST_CLAMP_SLACK: AtomicI32 = AtomicI32::new(250);
+/// Dev knob (x_timefloor): the numerator, over 3, of the fraction of PRESSURE_STEP*t by which the
+/// pressure ramp lowers the floor each own move. 2 = shipped (2/3, i.e. ~-300 by move 30 at the
+/// default step of 15); 0 stops the ramp lowering the floor at all (it still raises the bonus).
+pub static PRESSURE_FLOOR_NUM: AtomicI32 = AtomicI32::new(2);
+/// Dev knob (x_rampunits): 1 = shipped, the pressure ramp ALSO relaxes the sacrifice
+/// classification as the game runs on (`t>=6` -> at most 2 attack units, `t>=12` -> 1 unit and
+/// `any`, i.e. from move 26 of a default game *any* give-away with a single attacker counts as a
+/// sacrifice). That is a third effect of the ramp, separate from the bonus it adds and the floor
+/// it lowers, and the one most likely to admit queen/rook give-aways that are pure loss. 0 leaves
+/// the classification at its opening standard for the whole game (the bonus and floor still ramp).
+pub static RAMP_UNITS: AtomicI32 = AtomicI32::new(1);
 /// Sacrifice bonus once AggroChess has already sacrificed in this game (-1 = unchanged)
 /// (Sacrifice Appetite; 4.5.0: 60, which was +56 Elo at long time controls over keeping the
 /// full bonus; the Ultimate default keeps far more of the appetite on purpose).
@@ -837,18 +901,22 @@ pub fn sac_params_for(board: &Board) -> SacParams {
     }
     let step = PRESSURE_STEP.load(Ordering::Relaxed);
     p.bonus += step * t;
-    p.floor -= step * t * 2 / 3;
+    p.floor -= step * t * PRESSURE_FLOOR_NUM.load(Ordering::Relaxed) / 3;
     // when already well behind, every line scores below the usual floor: measure from where we are
     let own = LAST_OBJ.load(Ordering::Relaxed);
-    if own < 0 {
-        p.floor = p.floor.min(own - 250);
+    let clamp = LOST_CLAMP_SLACK.load(Ordering::Relaxed);
+    if own < 0 && clamp >= 0 {
+        p.floor = p.floor.min(own - clamp);
     }
+    // clamp == -1: skip the being-behind licence entirely, leaving the ramp's own floor.
+    if RAMP_UNITS.load(Ordering::Relaxed) != 0 {
     if t >= 6 {
         p.units = p.units.min(2);
     }
     if t >= 12 {
         p.units = 1;
         p.any = true;
+    }
     }
     let win_at = WIN_SAC_AT.load(Ordering::Relaxed);
     if win_at > 0 && own >= win_at {
@@ -1022,6 +1090,15 @@ pub static ZONE_SAC_ORDER: AtomicBool = AtomicBool::new(true);
 pub static TAL_LOOK: AtomicBool = AtomicBool::new(true);
 pub static TAL_LOOK_PCT: AtomicI32 = AtomicI32::new(30);
 pub static TAL_LOOK_PCT_PROMISING: AtomicI32 = AtomicI32::new(45);
+/// Whether the Sacrifice Appetite control asks for sacrifices at all (set by
+/// `personality::apply()` from the Sacrifice Appetite *setting*, never from the bonus amount,
+/// and left alone by the `x_sacbonus` dev knob). The Tal look is part of the sacrifice
+/// machinery, but it is a *search* feature rather than part of the root bonus: gating it on the
+/// bonus amount couples two independent things, so shrinking the bonus to its optimum (which
+/// the badge measurement prefers) would silently switch the look off at long time controls.
+/// The matches run at `movetime 300`, below DEEP_MIN_MS, so they can never observe the
+/// difference and would not warn of it.
+pub static APPETITE_ON: AtomicBool = AtomicBool::new(crate::personality::DEFAULTS.sacrifice_appetite > 0);
 
 pub static NET_ALWAYS: AtomicBool = AtomicBool::new(true);
 
@@ -2473,8 +2550,8 @@ impl SacParams {
             partial_hi: 0,
             partial_lo: 0,
             tal_sacs: false,
-            check_see: 120,
-            ext_depth: 4,
+            check_see: LOOK_NEUTRAL_CHECK_SEE.load(Ordering::Relaxed),
+            ext_depth: LOOK_NEUTRAL_EXT_DEPTH.load(Ordering::Relaxed),
             zone_order: 0,
             forcing: 0,
         }
@@ -2860,7 +2937,7 @@ fn search_position_inner(
     // window decides what gets pruned below them, so a sacrifice that needs depth is missed.
     let tal_cands = if TAL_LOOK.load(Ordering::Relaxed)
         && deep_mode
-        && sac.bonus > 0
+        && APPETITE_ON.load(Ordering::Relaxed)
         && full
         && limits.hard.map_or(false, |h| h >= Duration::from_millis(TAL_LOOK_MIN_MS.load(Ordering::Relaxed) as u64))
         && limits.nodes.is_none()
@@ -3449,13 +3526,21 @@ fn search_position_inner(
             let budget = spend(used);
             let best_true = best_score - best_sb;
             let best_is_sac = bril_cands.contains(&bm);
+            // Symmetric veto (see LOOK_SYM_VETO): on the veto branch compare the WHOLE sacrifice
+            // group against quiet, not just the one sacrifice the search happened to pick, so a
+            // better sacrifice can win instead of the look falling through to a quiet move.
+            let sym = LOOK_SYM_VETO.load(Ordering::Relaxed);
             // what the ordinary search's choice is compared against
             let group: Vec<Move> = if best_is_sac {
-                root_moves.iter().copied().filter(|m| !bril_cands.contains(m) && !promo_cands.contains(m)).collect()
+                if sym {
+                    bril_cands.clone()
+                } else {
+                    root_moves.iter().copied().filter(|m| !bril_cands.contains(m) && !promo_cands.contains(m)).collect()
+                }
             } else {
                 bril_cands.clone()
             };
-            let mine: Vec<Move> = if best_is_sac {
+            let mine: Vec<Move> = if best_is_sac && !sym {
                 vec![bm]
             } else {
                 root_moves.iter().copied().filter(|m| !bril_cands.contains(m) && !promo_cands.contains(m)).collect()
@@ -3491,7 +3576,7 @@ fn search_position_inner(
                     group_look(&ntt, board, &s.hashes, nsac, bn, bt, group, look_depth, style, false)
                 });
                 drop(guard);
-                if let (Some((sa, da, _, _)), Some((sb2, db, _, pv))) = (a, b_res) {
+                if let (Some((sa, da, _, sa_pv)), Some((sb2, db, _, pv))) = (a, b_res) {
                     let b = brilliance;
                     let margin = b * b / LOOK_MARGIN_DIV.load(Ordering::Relaxed).max(1);
                     let veto = match LOOK_VETO_ABS.load(Ordering::Relaxed) {
@@ -3518,33 +3603,66 @@ fn search_position_inner(
                     // a Skill Level the look may only *promote* a sound sacrifice, never
                     // demote the level's own choice on evidence it is too thin to trust.
                     let may_veto = full;
-                    let take = enough
-                        && !pv.is_empty()
-                        && if best_is_sac {
-                            // Veto the sacrifice when the look prefers quiet by a wide margin, OR
-                            // when the sacrifice's own score is genuinely bad (sa < LOOK_VETO_BAD)
-                            // even by a small margin - the look is confident and right about a lost
-                            // position, and that is where the veto earns its centipawns. See
-                            // LOOK_VETO_ABS for why the plain wide-margin rule lost brilliants.
-                            let bad = LOOK_VETO_BAD.load(Ordering::Relaxed);
-                            may_veto && sa < 300 && sb2.abs() < MATE_BOUND
-                                && (sb2 > sa + veto
-                                    || (bad != 0 && sa < bad && sb2 > sa + 50))
+                    // Both rules are written as functions of (sacrifice, quiet) so the shipped
+                    // branch and the symmetric branch provably share one implementation and
+                    // cannot drift apart. On the shipped veto branch the search's own sacrifice
+                    // is `sa` and the quiet group is `sb2`; on the promote branch `sa` is the
+                    // quiet group and `sb2` is the best sacrifice.
+                    let bad = LOOK_VETO_BAD.load(Ordering::Relaxed);
+                    // Veto the sacrifice when the look prefers quiet by a wide margin, OR when the
+                    // sacrifice's own score is genuinely bad (sac < LOOK_VETO_BAD) even by a small
+                    // margin - the look is then confident and right that the position is lost, and
+                    // that is where the veto earns its centipawns. See LOOK_VETO_ABS for why the
+                    // plain wide-margin rule lost brilliants.
+                    let veto_rule = |sac: i32, quiet: i32| -> bool {
+                        enough && !pv.is_empty()
+                            && may_veto && sac < 300 && quiet.abs() < MATE_BOUND
+                            && (quiet > sac + veto || (bad != 0 && sac < bad && quiet > sac + 50))
+                    };
+                    // The promote rule. The s2 cap guards only the PROMOTE side, and it must read
+                    // the SACRIFICE's score, which is what the cap's own doc describes: a sacrifice
+                    // already scoring this high is near-winning, not a brilliancy. The 5.4.0 code
+                    // read the QUIET group's score here, which is a second quiet-side cap and left
+                    // the near-winning sacrifices it was written to drop unpromoted-capable.
+                    // `x_s2onquiet=false` restores that behaviour for an A/B.
+                    let promote_rule = |sac: i32, quiet: i32| -> bool {
+                        let capped = if LOOK_S2_ON_QUIET.load(Ordering::Relaxed) { sac } else { quiet };
+                        enough && !pv.is_empty()
+                            && (s2cap == 0 || capped < s2cap)
+                            && (sac >= MATE_BOUND
+                                || (sac.abs() < MATE_BOUND && quiet.abs() < MATE_BOUND
+                                    && sac >= quiet - margin && sac >= floor && quiet < quiet_cap))
+                    };
+                    // `chosen_score`/`opposing_score` are the neutral scores of the move the look
+                    // picked and of the group it beat; `best_true - (opposing - chosen)` keeps the
+                    // main search's score scale while shifting by the neutral delta.
+                    let (take, chosen, chosen_pv, chosen_score, opposing_score) = if best_is_sac && sym {
+                        // Symmetric veto: `pv` is now the best SACRIFICE of the whole group and
+                        // `sa_pv` the best quiet move. Play the better sacrifice when the promote
+                        // rule likes it; otherwise fall back to the shipped veto, which swaps to
+                        // quiet. Never worse than shipped, only additionally able to find a
+                        // better sacrifice than the one the search happened to pick.
+                        if promote_rule(sb2, sa) {
+                            (true, pv.first().copied(), pv.clone(), sb2, sa)
+                        } else if veto_rule(sb2, sa) {
+                            (true, sa_pv.first().copied(), sa_pv.clone(), sa, sb2)
                         } else {
-                            // The s2 cap guards only the PROMOTE side. On the veto branch `sa`
-                            // is the sacrifice - capping it there would skip vetoes of the
-                            // very sacrifices that most need one (fail open).
-                            (s2cap == 0 || sa < s2cap)
-                                && (sb2 >= MATE_BOUND
-                                    || (sb2.abs() < MATE_BOUND && sa.abs() < MATE_BOUND && sb2 >= sa - margin && sb2 >= floor && sa < quiet_cap))
-                        };
+                            (false, None, Vec::new(), 0, 0)
+                        }
+                    } else if best_is_sac {
+                        // shipped veto: sa is the sacrifice, sb2 the quiet group
+                        (veto_rule(sa, sb2), pv.first().copied(), pv.clone(), sb2, sa)
+                    } else {
+                        // shipped promote: sa is the quiet group, sb2 the sacrifice
+                        (promote_rule(sb2, sa), pv.first().copied(), pv.clone(), sb2, sa)
+                    };
                     if print_info {
                         out!(
                             "info string brilliancy look: {} {} {} vs {} {} (neutral, depth {}/{}){}",
                             if best_is_sac { "safe" } else { "sacrifice" },
-                            pv_string(board, &pv[..1.min(pv.len())]),
-                            sb2,
-                            if best_is_sac { "sacrifice" } else { "best quiet" },
+                            pv_string(board, &chosen_pv[..1.min(chosen_pv.len())]),
+                            chosen_score,
+                            if best_is_sac && !sym { "sacrifice" } else { "best quiet" },
                             sa,
                             da,
                             db,
@@ -3562,18 +3680,22 @@ fn search_position_inner(
                         }
                     }
                     if take {
-                        strategy_swap = true;
-                        // a sacrifice the neutral look chose over the search's own move:
-                        // the opening-book path may let this override the book
-                        LOOK_PLAYED.store(!best_is_sac, Ordering::Relaxed);
-                        best_move = Some(pv[0]);
-                        // the main search's view of the new move is not known: keep its score
-                        // scale (objective, no bonus)
-                        best_score = if sb2.abs() < MATE_BOUND { best_true - (sa - sb2) } else { sb2 };
-                        best_sb = 0;
-                        *LAST_PV.lock().unwrap() = pv.clone();
-                        if print_info {
-                            out!("info depth {} score {} pv {}", db, format_score(best_score), pv_string(board, &pv));
+                        if let Some(ch) = chosen {
+                            strategy_swap = true;
+                            // a sacrifice the neutral look chose over the search's own move: the
+                            // opening-book path may let this override the book
+                            LOOK_PLAYED.store(bril_cands.contains(&ch), Ordering::Relaxed);
+                            best_move = Some(ch);
+                            best_score = if chosen_score.abs() < MATE_BOUND {
+                                best_true - (opposing_score - chosen_score)
+                            } else {
+                                chosen_score
+                            };
+                            best_sb = 0;
+                            *LAST_PV.lock().unwrap() = chosen_pv.clone();
+                            if print_info {
+                                out!("info depth {} score {} pv {}", db, format_score(best_score), pv_string(board, &chosen_pv));
+                            }
                         }
                     }
                 }

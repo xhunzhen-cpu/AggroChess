@@ -135,7 +135,7 @@ pub fn uci_loop() {
     let mut board = Board::default();
     let mut book_path = String::from("ph-gambitbook.bin");
     let mut book: Option<Book> = None; // loaded lazily so `uci` answers instantly
-    let own_book = true; // curated gambits always; Polyglot book used if BookPath exists
+    let mut own_book = true; // curated gambits always; Polyglot book used if BookPath exists
     let mut move_overhead: u64 = 50; // ms reserved per move for GUI / network lag
     let mut history_hashes = vec![search::rep_key(&board)];
     let mut prev_plies: usize = 0;
@@ -398,6 +398,30 @@ pub fn uci_loop() {
                                 search::LOOK_S2_CAP.store(v.max(0), Ordering::Relaxed);
                             }
                         }
+                        "x_s2onquiet" => {
+                            search::LOOK_S2_ON_QUIET.store(value.trim() == "true" || value.trim() == "1", Ordering::Relaxed);
+                        }
+                        "x_lookchecksee" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_NEUTRAL_CHECK_SEE.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_lookextdepth" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_NEUTRAL_EXT_DEPTH.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_lookleave" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOOK_LEAVE_GAIN.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_lookleavededup" => {
+                            search::LOOK_LEAVE_DEDUP.store(value.trim() == "true" || value.trim() == "1", Ordering::Relaxed);
+                        }
+                        "x_symveto" => {
+                            search::LOOK_SYM_VETO.store(value.trim() == "true" || value.trim() == "1", Ordering::Relaxed);
+                        }
                         "x_vetoslack" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::LOOK_VETO_SLACK.store(v.max(0), Ordering::Relaxed);
@@ -418,6 +442,14 @@ pub fn uci_loop() {
                         }
                         "x_bookbril" => {
                             search::BOOK_BRILLIANT.store(value.trim() == "true" || value.trim() == "1", Ordering::Relaxed);
+                        }
+                        "x_ownbook" => {
+                            // Dev knob: the curated gambit repertoire has always been hardcoded on.
+                            // false = never use any opening book (search ply 1 onward).
+                            own_book = value.trim() == "true" || value.trim() == "1";
+                            if !own_book {
+                                book = None;
+                            }
                         }
                         "x_winsacfloor" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
@@ -625,6 +657,29 @@ pub fn uci_loop() {
                         "x_pstep" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::PRESSURE_STEP.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_lostclamp" => {
+                            // Dev knob: the slack under `own` to which the pressure floor is
+                            // dropped when the engine is behind (250 = shipped). 0 disables the
+                            // clamp, so lost positions no longer license a sacrifice.
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::LOST_CLAMP_SLACK.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_timefloor" => {
+                            // Dev knob: the fraction (as n/3) of PRESSURE_STEP*t by which the
+                            // ramp lowers the floor each own move (2 = shipped 2/3).
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::PRESSURE_FLOOR_NUM.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_rampunits" => {
+                            // Dev knob: 1 = shipped, the pressure ramp also relaxes the sacrifice
+                            // classification late in the game (t>=6 -> <=2 attack units,
+                            // t>=12 -> 1 unit + any). 0 keeps the opening standard all game.
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::RAMP_UNITS.store(v, Ordering::Relaxed);
                             }
                         }
                         "x_nnue" => {

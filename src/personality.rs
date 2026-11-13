@@ -108,14 +108,23 @@ pub fn derive(s: Settings) -> Derived {
     let p = s.speculative.clamp(0, 100);
     // Sacrifice Appetite. The bonus is how far below the best alternative a sacrifice may score
     // and still be played, so it is the engine's tolerance for unsound sacrifices. Up to the
-    // classic 75 the mapping is 4.5.0's; above it the appetite is made *persistent* rather than
-    // *huge*: the bonus for the game's first sacrifice grows a little (300 -> 340 at 95), but
-    // the appetite after it, which 4.5.0 drops to 60 (nearly sound sacrifices only), stays at
-    // 180 at 95: a speculative sacrifice of a pawn or two is welcome all game. (A first version
-    // kept 240 of a 380 bonus and started the pressure at move 12; measured, it gave fewer
-    // purposeful sacrifices per move in balanced positions than 4.5.0, about twice the blunders,
-    // and lost about 170 Elo: tolerating four-pawn howlers is not the same as sacrificing more.)
-    let sac_bonus = if sa <= 75 { 4 * sa } else { 300 + 2 * (sa - 75) };
+    // classic 75 the mapping is 4.5.0's. Above 75 the appetite is made *persistent* rather than
+    // *huge*: the bonus for the game's first sacrifice is held small (20 at 95) while the
+    // appetite after it, which 4.5.0 drops to 60 (nearly sound sacrifices only), stays at 180, so
+    // a speculative sacrifice of a pawn or two is welcome all game. The size of that first bonus
+    // is what decides how far below sound a sacrifice may be, and it was measured to be far too
+    // large at 340: on the same openings and 600-game draws a first-sacrifice bonus of 20 raises
+    // the strict chess.com brilliant rate from 0.065 to 0.113 per game AND is ~50 Elo *stronger*
+    // head-to-head (0/40/120/220/340 give 0.113/0.092/0.093/0.078/0.065, monotone). The bonus is
+    // what buys junk *inside* the badge-shaped window: the window is conserved, the unsound share
+    // of it falls and the conversion inside it rises. The pressure ramp added on top of this bonus
+    // contributes nothing measurable (neutralising the ramp alone, base kept, changes neither the
+    // brilliant rate nor Elo at all), so it is kept for its late-game effect on the floor only.
+    // (An earlier version kept 240 of a 380 bonus and started the pressure at move 12; measured,
+    // it gave fewer purposeful sacrifices per move in balanced positions than 4.5.0, about twice
+    // the blunders, and lost about 170 Elo: tolerating four-pawn howlers is not the same as
+    // sacrificing more.)
+    let sac_bonus = if sa <= 75 { 4 * sa } else { 20 };
     let after_sac_bonus = if sa <= 75 { 60 * sa / 75 } else { 60 + 6 * (sa - 75) };
     let chain_bonus = if sa <= 75 { 2 * sa } else { 150 + 2 * (sa - 75) };
     let pressure_start = if sa <= 75 { 20 + (75 - sa) * 2 / 5 } else { 20 - (sa - 75) * 3 / 10 };
@@ -189,6 +198,8 @@ pub fn apply() {
     eval::KING_K.store(d.king_k, r);
     search::ZONE_ORDER.store(d.zone_order, r);
     search::SACRIFICE_BONUS.store(d.sac_bonus, r);
+    // the Tal look follows the appetite SETTING, not the derived bonus: see APPETITE_ON
+    search::APPETITE_ON.store(current().sacrifice_appetite > 0, r);
     search::AFTER_SAC_BONUS.store(d.after_sac_bonus, r);
     search::CHAIN_BONUS.store(d.chain_bonus, r);
     search::PRESSURE_START.store(d.pressure_start, r);
@@ -302,13 +313,16 @@ mod tests {
             let d = derive(Settings { aggression: v, sacrifice_appetite: v, king_attack: v, material_preservation: 100 - v, speculative: v });
             assert!(d.trade_k >= prev.trade_k && d.activity_k >= prev.activity_k && d.contempt >= prev.contempt);
             assert!(d.king_danger_pct >= prev.king_danger_pct && d.king_k >= prev.king_k && d.zone_order >= prev.zone_order);
-            assert!(d.sac_bonus >= prev.sac_bonus && d.after_sac_bonus >= prev.after_sac_bonus && d.chain_bonus >= prev.chain_bonus);
+            // sac_bonus is deliberately NOT monotone in the appetite. Above the classic 75 the
+            // appetite is made *persistent* (after_sac_bonus, chain_bonus keep rising) rather than
+            // *huge*, and the first-sacrifice bonus is held small: measured, a smaller first bonus
+            // raises the strict brilliant rate and is stronger head-to-head (see derive()).
+            assert!(d.after_sac_bonus >= prev.after_sac_bonus && d.chain_bonus >= prev.chain_bonus);
             assert!(d.pressure_start <= prev.pressure_start && d.pressure_step >= prev.pressure_step && d.gambit_bonus >= prev.gambit_bonus);
             assert!(d.sac_floor <= prev.sac_floor && d.sac_full_units <= prev.sac_full_units);
             assert!(d.sac_partial_hi >= prev.sac_partial_hi && d.sac_partial_lo >= prev.sac_partial_lo);
             assert!(d.check_see >= prev.check_see && d.sac_ext_depth <= prev.sac_ext_depth);
             assert!(d.material_preservation <= prev.material_preservation);
-            assert!(d.after_sac_bonus <= d.sac_bonus);
             prev = d;
         }
     }
@@ -324,7 +338,7 @@ pub const INITIAL: Derived = Derived {
     king_danger_pct: 250,
     king_k: 150,
     zone_order: 3250,
-    sac_bonus: 340,
+    sac_bonus: 20,
     after_sac_bonus: 180,
     chain_bonus: 190,
     pressure_start: 14,
