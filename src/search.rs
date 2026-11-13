@@ -2844,6 +2844,14 @@ fn search_position_inner(
         if bril_cands.len() >= root_moves.len() {
             bril_cands.clear(); // every legal move gives material away: nothing to compare
         }
+        // AGGRO_SACDUMP: the classification itself, for the offline ceiling measurement
+        // (testing/ceiling.py asks Stockfish which of these are actually sound). Off by
+        // default and free when unset.
+        if std::env::var_os("AGGRO_SACDUMP").is_some() {
+            let all: Vec<String> = bril_cands.iter().chain(promo_cands.iter())
+                .map(|m| cozy_chess::util::display_uci_move(board, *m).to_string()).collect();
+            out!("info string sacdump {}", all.join(" "));
+        }
         let pct_now = if full {
             // exactly the 5.3.0 share: the look's time is derived from what the search used
             BRILLIANCE_PCT.load(Ordering::Relaxed).clamp(5, 50) as u32

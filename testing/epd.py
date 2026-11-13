@@ -41,9 +41,12 @@ def parse_epd(path):
         bm = re.search(r'(?:^|\s)bm\s+([^;]+);', line)
         if bm:
             ops["bm"] = bm.group(1).split()
+        am = re.search(r'(?:^|\s)am\s+([^;]+);', line)
+        if am:
+            ops["am"] = am.group(1).split()
         for om in re.finditer(r'\b(id|c0|c1|c2|c3)\s+"([^"]*)";', line):
             ops[om.group(1)] = om.group(2)
-        head = re.split(r'\s(?:bm|id|c0|c1|c2|c3)\b', line)[0].strip()
+        head = re.split(r'\s(?:bm|am|id|c0|c1|c2|c3)\b', line)[0].strip()
         parts = head.split()
         if len(parts) < 4:
             continue
@@ -152,8 +155,10 @@ def main():
             score = None
             for mt in budgets:
                 pv, score = eng.search(fen, mt)
-                hit = bool(pv) and (not ops.get("c3") or pv[0] in ops["c3"].split())
-                tactical = "c3" in ops or "bm" in ops
+                hit = bool(pv) and (not ops.get("am") and (not ops.get("c3") or pv[0] in ops["c3"].split()))
+                # an avoid-move test wants the full budget: it passes on *any* move but the
+                # banned one, so stopping early on the short probe would grade a half-search
+                tactical = ("c3" in ops or "bm" in ops) and "am" not in ops
                 if hit and tactical:
                     break
                 if not tactical and score is not None:
@@ -161,7 +166,15 @@ def main():
             if "c2" not in ops or "c3" not in ops:
                 # keep the last probe's verdict
                 pass
-            if "c3" in ops or "bm" in ops:
+            if "am" in ops:
+                # avoid-move: the engine must not pick any of these (the veto class - a
+                # sacrifice measured to be losing). Any other move passes, so the test is
+                # stable against which quiet move the search happens to prefer.
+                bad = ops["am"]
+                ok = bool(pv) and pv[0] not in bad
+                found = "pv " + " ".join(pv[:3]) if pv else "no pv"
+                res = ("OK  " if ok else "FAIL") + f" {ident}: avoid " + "/".join(bad) + " -> " + found
+            elif "c3" in ops or "bm" in ops:
                 # expected moves: the c3 field carries UCI (the engine's language);
                 # bm alone is SAN (display only) - such positions only grade "searched"
                 expected = ops.get("c3", "").split()

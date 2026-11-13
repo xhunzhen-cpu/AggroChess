@@ -287,6 +287,24 @@ The crate is organised so further subcommands (e.g. `analyze`) can be added in
 `stats.rs` (W/D/L → Elo), `tournament.rs`, `ucitest.rs`, `openings.rs`, `sys.rs`
 (signals, child hardening, dates).
 
+## Brilliancy look — measuring a change
+
+`brilliant/g` from a single 120-game A/B is dominated by sampling noise: the pooled rate over
+every lever run is **0.087/g with a 95% CI of [0.074, 0.101]**, and a 120-game run's own CI
+spans about ±0.05/g. Do not read a policy change out of one run's count. Use these instead:
+
+| script | what it answers |
+| --- | --- |
+| `lever_pool.py` | every run in `runs/lever` plus the pooled rate and its CI |
+| `missed.py <run> <games> [sf-nodes]` | per position: did the engine decline a sacrifice Stockfish says was better? |
+| `ceiling.py <run> <games> [sf-nodes]` | per position: was a *sound* sacrifice available, and did the engine take it? (needs the engine's `AGGRO_SACDUMP` dump) |
+| `mk_look_epd.py <run> <games> <sf-nodes> <out.epd>` | writes a regression EPD of measured look decisions |
+| `look_time.py <run> [games] [positions]` | does more time make the look promote more sacrifices? |
+| `epd.py --epd <file>` | runs that EPD; `am <move>` asserts a move must *not* be played (the veto class), `bm`/`c3` assert one that must |
+
+Both generators start the engine themselves, so run them against a freshly built
+`target/release/aggro_chess` (they use the same rig as `lever_run.py`).
+
 ## Elo calibration — `elo.py`, `calibrate.py`
 
 Both are stdlib-only Python 3. Self-tests (no games are played):
