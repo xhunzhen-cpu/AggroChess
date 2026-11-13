@@ -18,6 +18,18 @@ sacrifice does not leave a lost position (> -150).
 Take-rule (src/search.rs): sb2 >= sa - margin && sb2 >= floor && sa < quiet_cap,
 where sb2 = sacrifice's neutral score, sa = quiet group's neutral score.
 
+RESULTS (2026-11-13), so nobody re-litigates them:
+
+  rule            pooled(1061 seats)      held-out(1206 sites)
+                  gems   cp  cp/gem       gems   cp  cp/gem
+  80/-50/1000        9  3607    401         13  1036    80     <- 5.3.0
+  60/-100/1000      11  2557    232         15   959    64     <- ADOPTED
+  110/-150/250      16  3221    201         14  2011   144     <- REFUTED
+
+  The wide rule wins on the pooled set only because that set was used to fit it.
+  On held-out data it is worse than the adopted rule on every metric, at >2x the
+  cost. Never adopt a take-rule without evaluating it on runs outside the fit.
+
 Usage:
   python3 -I testing/gems.py <sites.jsonl> [...]
   python3 -I testing/gems.py --rules "60,-100,1000;110,-150,250" <sites...>
