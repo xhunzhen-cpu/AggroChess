@@ -1186,6 +1186,41 @@ fn sac_search_on() -> bool {
 /// be tested as a one-knob arm rather than by rebuilding the eval.
 pub static INVEST_PCT: AtomicI32 = AtomicI32::new(100);
 
+/// Dev knob (`x_nonking`): extend the sacrifice bonus to a NON-king-aimed piece sacrifice.
+///
+/// The bonus's first gate is `aimed_at_king` (~2105: check, or the destination square / the piece
+/// itself bearing on the enemy king zone). That gate is what makes the bonus a *king-attack*
+/// feature, and it is why the sacrifice funnel is 13% badge-shaped with a large
+/// "king/castle" bucket: a sacrifice that wins material or a square somewhere else on the board
+/// never gets the tolerance to be chosen.
+///
+/// But the STRICT chess.com badge does not require the sacrifice to hit the king. `x_nonking=N`
+/// (N>0) additionally admits a non-king-aimed PIECE-OR-BIGGER sacrifice (see_ge fail of at least
+/// `nonking_see`) and grants it `N` percent of the bonus. This is the "prefer brilliant moves
+/// wherever they are" lever: it can only raise sacrifice volume into the badge-shaped pool, and
+/// whether those extra sacrifices survive the sf_before/sf_after/drop gates is exactly what the
+/// measurement decides.
+///
+/// DEFAULT IS 0 (off): the `aimed_at_king` requirement is unchanged, so the shipped engine is
+/// bit-identical.
+pub static NONKING_PCT: AtomicI32 = AtomicI32::new(0);
+/// SEE threshold (in cp, negated) for the extra non-king sacrifice branch of `x_nonking`.
+/// 150 = the same "about two pawns" bar the king-aimed branch uses.
+pub static NONKING_SEE: AtomicI32 = AtomicI32::new(150);
+
+/// Dev knob (`x_piecesac`): percent of the sacrifice appetite granted to a PIECE-OR-BIGGER
+/// sacrifice that the king-aim gates did NOT catch. See the branch in the move scoring.
+///
+/// The measured problem this addresses: 63.4% of the engine's sacrifice events are pawn
+/// sacrifices, which can never earn a chess.com badge, while the whole bonus apparatus is built
+/// around pawn gambits. A piece sacrifice away from the king currently earns nothing.
+///
+/// DEFAULT IS 0 (off): the branch is dead and the shipped engine is bit-identical.
+pub static PIECE_SAC_PCT: AtomicI32 = AtomicI32::new(0);
+/// SEE bar (cp, negated) for the `x_piecesac` branch. Default 250 is deliberately wider than the
+/// 150 used for the king-aimed sacrifice, so the branch can reach a real piece give-away.
+pub static PIECE_SAC_SEE: AtomicI32 = AtomicI32::new(250);
+
 #[inline]
 fn pv_node_excluded(excluded: Option<Move>) -> bool {
     excluded.is_some()
@@ -2105,25 +2140,38 @@ impl Searcher {
                 && (gives_check
                     || ezone & m.to.bitboard().0 != 0
                     || (piece != Piece::King && piece_attacks(piece, stm, m.to, child.occupied().0) & ezone != 0));
+            // `x_nonking`: also admit a non-king-aimed PIECE-OR-BIGGER sacrifice for a fraction of
+            // the bonus — the "play for a brilliant move wherever it is" lever. Default 0 = off.
+            let nk_pct = NONKING_PCT.load(Ordering::Relaxed);
+            let nonking = sac_bonus > 0
+                && nk_pct > 0
+                && !aimed_at_king
+                && !matches!(piece, Piece::Pawn | Piece::King)
+                && !see_ge(board, m, -NONKING_SEE.load(Ordering::Relaxed));
             // `is_sac`: the bonus is for a sacrifice (a gambit or the forcing tie-break is not one)
             let (sb, is_sac) = if sac_bonus > 0
-                && aimed_at_king
+                && (aimed_at_king || nonking)
                 && !see_ge(board, m, -150) // about two pawns or more: a single pawn is not a sacrifice
             {
+                // the non-king branch gets `nk_pct` of whatever the king-aimed branch would;
+                // `nk_pct` is 0 whenever the move IS aimed at the king, so the shipped path is
+                // `sac_bonus * 100 / 100` = unchanged.
+                let scale = if aimed_at_king { 100 } else { nk_pct };
                 if SAC_NEEDS_ATTACK.load(Ordering::Relaxed) {
                     // Scale the bonus by how much attack the sacrifice brings: a sacrifice with
                     // several pieces aimed at the king is a real attack, a lone piece is a spite sac.
                     let units = attack_units(&child, stm, ezone) as i32;
                     let full = self.sac.units;
-                    if units >= full {
-                        (sac_bonus, true)
+                    let b = if units >= full {
+                        sac_bonus
                     } else if units == full - 1 {
-                        (sac_bonus * self.sac.partial_hi / 100, true)
+                        sac_bonus * self.sac.partial_hi / 100
                     } else {
-                        (sac_bonus * self.sac.partial_lo / 100, true)
-                    }
+                        sac_bonus * self.sac.partial_lo / 100
+                    };
+                    (b * scale / 100, true)
                 } else {
-                    (sac_bonus, true)
+                    (sac_bonus * scale / 100, true)
                 }
             } else if sac_bonus > 0
                 && piece == Piece::Rook
@@ -2133,6 +2181,30 @@ impl Searcher {
                 // exchange sacrifice (Rxf6!, Rxc3!): a rook for a minor piece to wreck the
                 // pawns or open lines, even when it isn't aimed straight at the king
                 (sac_bonus, true)
+            } else if sac_bonus > 0
+                && PIECE_SAC_PCT.load(Ordering::Relaxed) > 0
+                && !matches!(piece, Piece::Pawn | Piece::King)
+                && !see_ge(board, m, -PIECE_SAC_SEE.load(Ordering::Relaxed))
+            {
+                // `x_piecesac`: a PIECE-OR-BIGGER sacrifice that the king-aim gates above did NOT
+                // catch, given its own appetite.
+                //
+                // Why this exists: measured on a 1500-game arm, 63.4% of the engine's sacrifice
+                // events are PAWN sacrifices, which can never earn a chess.com badge (the badge
+                // needs a piece/queen/exchange). The whole apparatus above -- the bonus, the
+                // `aimed_at_king` requirement, the gambit branch (explicitly "a pawn given for the
+                // attack") -- is aimed at pawn gambits, i.e. at the one sacrifice shape that cannot
+                // badge. A piece sacrifice that wins material or a square away from the king gets
+                // no tolerance at all, so the search never prefers it.
+                //
+                // The bonus is scaled by how much material actually goes (`see_ge` depth): a small
+                // give-away gets a fraction of the appetite, a full piece the whole of it, so the
+                // engine is not simply paid to hand over a rook. `PIECE_SAC_SEE` defaults wider
+                // than the 150 bar above (a knight is ~320), because the point is to reach the
+                // sacrifices that mean a real piece.
+                //
+                // DEFAULT IS 0 (off): the branch is dead and the shipped engine is bit-identical.
+                (sac_bonus * PIECE_SAC_PCT.load(Ordering::Relaxed) / 100, true)
             } else if root && sac_bonus > 0 && self.sac.tal_sacs && leaves_material(&child) {
                 // Tal's kind of sacrifice: the moved piece is safe, but something else is left
                 // hanging (a piece, the exchange, two pawns) for the attack

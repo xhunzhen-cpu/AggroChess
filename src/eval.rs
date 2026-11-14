@@ -44,6 +44,21 @@ pub static ACTIVITY_K: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.ac
 /// is partly discounted while the engine's pieces bear on the enemy king; above 50 a deficit
 /// costs extra.
 pub static MATERIAL_PRES: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.material_preservation);
+
+/// Dev knob (`x_hang`): a percent multiplier on the HANGING-PIECE term (the "my piece is attacked
+/// and undefended" penalty, ~774-777: 30 cp a minor+ and 6-12 cp a pawn).
+///
+/// This is the term that decides whether the engine SAVES an attacked piece or IGNORES the attack.
+/// chess.com badges a move that ignores an attack on a piece (the piece is left to be taken and the
+/// compensation is real); the arena cannot even see that shape, because its sacrifice classifier
+/// needs material lost BY the move (analyze.rs candidate(): d2 must clear PAWN_D), so a move that
+/// leaves a piece en prise to be captured a ply later registers as nothing at all.
+///
+/// Setting the multiplier BELOW 100 makes the engine care less about leaving a piece hanging, so it
+/// will more often play the strong move that ignores the attack. Above 100 makes it more material-
+/// timid. 100 is the shipped behaviour, and the shipped default is 100, so the engine is
+/// bit-identical unless the knob is set.
+pub static HANG_PCT: AtomicI32 = AtomicI32::new(100);
 /// King clamp bonus (a pawn of ours on the 6th rank against the enemy king), personality
 /// layer, at the default aggression. 0 = off.
 pub static KING_CLAMP: AtomicI32 = AtomicI32::new(45);
@@ -772,8 +787,13 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
         let hanging = x.colors[them] & !x.pcs[them][5] & x.att_all[c] & !x.att_all[them];
         let hp = (hanging & x.pcs[them][0]).count_ones() as i32;
         let hn = (hanging & !x.pcs[them][0]).count_ones() as i32;
-        x.mg[c] += hn * 30 + hp * 6;
-        x.eg[c] += hn * 18 + hp * 12;
+        // `x_hang`: percent multiplier on the hanging-piece penalty. Below 100 the engine minds
+        // less about leaving a piece en prise, i.e. it will more often IGNORE an attack on a piece
+        // (the chess.com brilliant shape). 100 = shipped.
+        let hk = HANG_PCT.load(Ordering::Relaxed);
+        let (hmg, heg) = (hn * 30 * hk / 100 + hp * 6 * hk / 100, hn * 18 * hk / 100 + hp * 12 * hk / 100);
+        x.mg[c] += hmg;
+        x.eg[c] += heg;
     }
 
     // --- king safety --------------------------------------------------------

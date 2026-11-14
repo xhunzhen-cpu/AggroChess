@@ -511,6 +511,23 @@ pub fn uci_loop() {
                                 search::INVEST_PCT.store(v.max(0), Ordering::Relaxed);
                             }
                         }
+                        "x_piecesac" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::PIECE_SAC_PCT.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_piecesacsee" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::PIECE_SAC_SEE.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_hang" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                crate::eval::HANG_PCT.store(v.max(0), Ordering::Relaxed);
+                                // the personality eval is memoised per position version
+                                crate::eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
                         "x_chainmin" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::CHAIN_MIN.store(v, Ordering::Relaxed);
