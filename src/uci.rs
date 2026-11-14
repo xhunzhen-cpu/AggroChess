@@ -714,6 +714,22 @@ pub fn uci_loop() {
                                 search::PRESSURE_STEP.store(v, Ordering::Relaxed);
                             }
                         }
+                        "x_winsacoff" => {
+                            // Dev knob: 1 = when already winning (|own| >= x_decidedwin),
+                            // switch off the whole winning-sacrifice licence (the `any`/`win`
+                            // widening, the floor raise, and the margin-following bonus) and
+                            // undo the "decided => hurry" ramp acceleration. Tests whether the
+                            // "already winning" gate (199 piece+ events / 1500 games) can be
+                            // spent elsewhere. Inert by default.
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::WIN_SAC_OFF.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_decidedwin" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::DECIDED_WIN_CP.store(v, Ordering::Relaxed);
+                            }
+                        }
                         "x_lostclamp" => {
                             // Dev knob: the slack under `own` to which the pressure floor is
                             // dropped when the engine is behind (250 = shipped). 0 disables the

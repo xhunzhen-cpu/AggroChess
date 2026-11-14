@@ -862,6 +862,15 @@ pub static PRESSURE_STEP: AtomicI32 = AtomicI32::new(crate::personality::INITIAL
 /// game still has its sacrifice before it ends.
 pub static WIN_SAC_AT: AtomicI32 = AtomicI32::new(500);
 pub static WIN_SAC_FLOOR: AtomicI32 = AtomicI32::new(300);
+// DEV (x_winsacoff): when the engine is already winning (|own| >= DECIDED_WIN_CP), the whole
+// winning-sacrifice licence is switched off -- no `any`/`win` widening, no floor raise, no
+// margin-following bonus. The project's sacrifice funnel loses 199 piece+ events per 1500 games
+// to the "already winning" gate (sf_before >= 300), and nothing in the codebase suppresses
+// sacrifice appetite in a decided position; every existing term only loosens it. Inert by default
+// (AGGRO_DEV only) so shipped behaviour is untouched. 0 = shipped.
+pub static WIN_SAC_OFF: AtomicI32 = AtomicI32::new(0);
+/// above this engine score the position counts as won for `WIN_SAC_OFF`.
+pub static DECIDED_WIN_CP: AtomicI32 = AtomicI32::new(300);
 /// ...and far ahead, the bonus grows with the lead (part of the margin above the floor), since a
 /// stretched evaluation makes every give-away look dearer than its material.
 pub static WIN_SAC_NOW: AtomicBool = AtomicBool::new(true);
@@ -929,8 +938,18 @@ pub fn sac_params_for(board: &Board) -> SacParams {
     // The objective score of the previous search (without its sacrifice bonus): a line that
     // only looked +3 because of the bonus must not count as a decided game.
     let last = LAST_OBJ.load(Ordering::Relaxed).abs();
-    // a decided game ends soon (and a sacrifice costs little there): hurry
-    let decided = if last >= 600 { 30 } else if last >= 300 { 12 } else { 0 };
+    // a decided game ends soon (and a sacrifice costs little there): hurry. `decided` is split
+    // into won vs lost so each can be neutralised independently (see WIN_SAC_OFF / DECIDED_*).
+    let won = last >= DECIDED_WIN_CP.load(Ordering::Relaxed);
+    let win_sac_off = WIN_SAC_OFF.load(Ordering::Relaxed) != 0 && won;
+    let decided = if last >= 600 {
+        30
+    } else if last >= 300 {
+        12
+    } else {
+        0
+    };
+    let decided = if win_sac_off { 0 } else { decided };
     let t = (moves.max(0) + decided).min(30);
     if t == 0 {
         return p;
@@ -955,7 +974,7 @@ pub fn sac_params_for(board: &Board) -> SacParams {
     }
     }
     let win_at = WIN_SAC_AT.load(Ordering::Relaxed);
-    if win_at > 0 && own >= win_at {
+    if win_at > 0 && own >= win_at && !win_sac_off {
         p.any = true;
         p.win = true;
         p.floor = p.floor.max(WIN_SAC_FLOOR.load(Ordering::Relaxed));
