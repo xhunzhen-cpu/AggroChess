@@ -117,11 +117,12 @@ pub fn derive(s: Settings) -> Derived {
     // the strict chess.com brilliant rate from 0.065 to 0.113 per game AND is ~50 Elo *stronger*
     // head-to-head (0/5/10/20/40/60/120/220/340 give 0.108/0.067/0.080/0.113/0.092/0.087/0.093/
     // 0.078/0.065, peaking at 20). The bonus is what buys junk *inside* the badge-shaped window:
-    // inside moves 10-30 the badge-shaped events nearly halve (284 -> 150 over 600 games), the
-    // unsound share of them falls (110 -> 52) and the conversion inside the window rises
-    // (19.4% -> 31.3%) - so total sacrifice volume is roughly flat while the strict count nearly
-    // doubles (on the same 600 games base 20 fires slightly fewer sacrifices than base 340 -
-    // 835 vs 866 - but nearly twice as many strict brilliants, 68 vs 39).
+    // on the same 600 games (shipped 340 as ctl, base 20 as var) the badge-shaped events inside
+    // moves 10-30 stay level (0.235 -> 0.250 per game), the unsound share of them falls
+    // (95 -> 69) and the conversion inside the window rises (18.4% -> 31.3%) - so total
+    // sacrifice volume is roughly flat while the strict count rises by half
+    // (on the same 600 games base 20 fires about the same number of sacrifices as base 340 -
+    // 835 vs 819 - but half again as many strict brilliants, 68 vs 45).
     // The pressure ramp added on top of this bonus is *load-bearing* once the base is small.
     // At base 340 it bought no brilliants at all (neutralising it left strict exactly +0.000/g)
     // while COSTING 35 Elo, so it only ever hurt; at base 20 it buys +0.042 strict/g for about

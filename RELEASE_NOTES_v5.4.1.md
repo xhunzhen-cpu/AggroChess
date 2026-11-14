@@ -63,8 +63,8 @@ being about **12 Elo stronger**, so the ramp is ~12 Elo spent to buy +0.042 stri
 (+0.0000/g) but measured **34.9 Elo stronger**, i.e. at 340 the ramp only ever cost strength and
 bought nothing. The winning shape is **small early, growing late**: a
 nearly-sound first sacrifice, then a rising appetite. The event counts say it directly: on the
-same 600 games base 20 fires slightly *fewer* sacrifices than base 340 (835 vs 866) but
-**nearly twice as many strict brilliants (68 vs 39)**.
+same 600 games base 20 fires about the same number of sacrifices as base 340 (835 vs 819) but
+**half again as many strict brilliants (68 vs 45)**.
 
 ## Evidence
 
