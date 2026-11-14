@@ -501,6 +501,16 @@ pub fn uci_loop() {
                                 search::SAC_SAC_DEPTH.store(v, Ordering::Relaxed);
                             }
                         }
+                        "x_sacungate" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::SAC_UNGATE.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_invest" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::INVEST_PCT.store(v.max(0), Ordering::Relaxed);
+                            }
+                        }
                         "x_chainmin" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::CHAIN_MIN.store(v, Ordering::Relaxed);

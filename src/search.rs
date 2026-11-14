@@ -1151,6 +1151,41 @@ fn deep() -> bool {
     DEEP.load(Ordering::Relaxed)
 }
 
+/// Surgical deep-mode split (dev knob `x_sacungate`). `deep()` as a single switch bundles the
+/// whole of 4.3's "long think" behaviour, and every match this project runs at `movetime 300`
+/// sits below `DEEP_MIN_MS` (hard limit is `movetime - move_overhead` = 250 ms), so *none* of it
+/// has ever been measured. The parts of it that are about SACRIFICES are exactly the ones worth
+/// having at a short clock, and they are cheap compared with the rest (the expensive parts are
+/// Tal's look's own time budget and the mate-net priming):
+///
+///   - `full_sac`            (~2165)  the root/depth-2 sacrifice is searched at FULL depth
+///   - the below-floor re-search (~2260)  a sacrifice whose bonus-free score lands under the
+///                                    floor is re-searched with the true window instead of being
+///                                    kept as a mere bound
+///   - `ZONE_SAC_ORDER`      (~1564)  king-zone sacrifices get a move-ordering key
+///   - `ROOT_RESEARCH`/`SAC_PV` (~2171) Tal's "a sacrifice at the root gets a real look" re-search
+///
+/// With `x_sacungate=1` those four consult `sac_search_on()` instead of `deep()`, so they can run
+/// at a short time control while the look budget and mate-net stay gated on the real `deep()`.
+/// DEFAULT IS 0 (off): `sac_search_on()` is exactly `deep()`, so the shipped engine is bit-identical.
+pub static SAC_UNGATE: AtomicI32 = AtomicI32::new(0);
+
+/// The depth-extension gate for the sacrifice-search features listed on `SAC_UNGATE`.
+/// At the default (`SAC_UNGATE == 0`) this is exactly `deep()`.
+#[inline]
+fn sac_search_on() -> bool {
+    deep() || SAC_UNGATE.load(Ordering::Relaxed) != 0
+}
+
+/// Dev knob (`x_invest`): the sacrifice-compensation refund in `eval.rs` (`MATERIAL_PRES` block)
+/// is the ONLY explicit "being material down is fine while attacking" term in the evaluation, and
+/// at the shipped Material Preservation=15 it returns at most ~42 cp for a one-piece deficit with
+/// three attackers — small next to the 150-340 cp terms the search actually decides sacrifices on.
+/// `x_invest` is a PERCENT multiplier on that refund (stored into `eval::INVEST_PCT`); 100 is the
+/// shipped behaviour. It exists so "make the engine value the attack more than the material" can
+/// be tested as a one-knob arm rather than by rebuilding the eval.
+pub static INVEST_PCT: AtomicI32 = AtomicI32::new(100);
+
 #[inline]
 fn pv_node_excluded(excluded: Option<Move>) -> bool {
     excluded.is_some()
@@ -1561,7 +1596,7 @@ impl Searcher {
                 let ch = self.capt_hist[pc12(stm, attacker)][m.to as usize][victim as usize];
                 if see_ge(board, m, -50) {
                     4_000_000 + base + ch / 16
-                } else if ezone & m.to.bitboard().0 != 0 && ZONE_SAC_ORDER.load(Ordering::Relaxed) && deep() {
+                } else if ezone & m.to.bitboard().0 != 0 && ZONE_SAC_ORDER.load(Ordering::Relaxed) && sac_search_on() {
                     // a capture next to the king that gives material (Rxh7!, Bxh7+) is tried
                     // with the good moves: it is a sacrifice, not a bad trade
                     2_950_000 + base + ch / 16
@@ -2162,7 +2197,7 @@ impl Searcher {
             }
             let (wa, wb) = (alpha - sb, beta - sb); // search window for this move
             let mut score;
-            let full_sac = root && (is_sac || (tal && gives_check)) && SAC_FULL_DEPTH.load(Ordering::Relaxed) && deep();
+            let full_sac = root && (is_sac || (tal && gives_check)) && SAC_FULL_DEPTH.load(Ordering::Relaxed) && sac_search_on();
             // at the root, when the best so far is a draw, every alternative gets its full depth:
             // a quiet winning try is invisible through reductions (Amann's Qd8!)
             // the same when the best so far is clearly bad: hidden resources (a sacrifice into a
@@ -2257,7 +2292,7 @@ impl Searcher {
                 score = -self.search(&child, new_depth, -wb, INF, ply + 1, false);
             }
             let mut sb_added = 0;
-            if sb != 0 && score >= wb && score < self.sac.floor && deep() && !self.stop.load(Ordering::Relaxed) {
+            if sb != 0 && score >= wb && score < self.sac.floor && sac_search_on() && !self.stop.load(Ordering::Relaxed) {
                 // The shifted window failed high, but below the floor the bonus does not apply:
                 // the score is only a bound, so it must not be used as the move's value. Search
                 // the move again with the true window.

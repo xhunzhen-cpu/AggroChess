@@ -24,6 +24,7 @@
 
 use cozy_chess::{BitBoard, Board, Color, Piece, Square};
 use std::sync::atomic::{AtomicI32, AtomicU8, Ordering};
+use crate::search::INVEST_PCT;
 
 /// Percentage applied to the king danger *the engine* inflicts on its opponent (King Attack
 /// Priority). 100 = objective, 220 = AggroChess 4.5.0, 250 = Ultimate default.
@@ -912,7 +913,10 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
             if deficit > 0 {
                 if mp < 50 {
                     let units = x.ka_units[ec].min(5);
-                    let refund = deficit * (50 - mp) * units * 30 / (50 * 5 * 100);
+                    // `INVEST_PCT` (dev knob x_invest) is a percent multiplier on the refund;
+                    // 100 is the shipped behaviour. See search.rs SAC_UNGATE for why.
+                    let refund = deficit * (50 - mp) * units * 30 * INVEST_PCT.load(Ordering::Relaxed)
+                        / (50 * 5 * 100 * 100);
                     pmg[ec] += refund;
                     peg[ec] += refund / 2;
                 } else {
