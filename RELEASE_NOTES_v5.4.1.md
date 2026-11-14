@@ -22,7 +22,7 @@ The bonus is the engine's tolerance for unsoundness: how far below the best quie
 sacrifice may score and still be played. At 340 that tolerance was so large that, in the
 phase where badge-eligible sacrifices actually occur (moves 10–30), the engine preferred
 objectively worse sacrifices. Shrinking the base raises the *conversion* inside the
-badge-shaped window even though it slightly lowers total sacrifice volume:
+badge-shaped window without giving up any sacrifice volume:
 
 | base first-sacrifice bonus | strict brilliant/game (seed 11) | Elo vs shipped |
 |---|---|---|
@@ -33,10 +33,15 @@ badge-shaped window even though it slightly lowers total sacrifice volume:
 | 80 | 0.1083 | +59 |
 | 120 | 0.0933 | +44 |
 | 220 | 0.0783 | +12 |
-| 340 (5.4.0) | 0.0650 | — |
+| 340 (5.4.0), ramp off | 0.0650 | — |
+| 340 (5.4.0), shipped | 0.0700 | — |
 
-Read that table the way it deserves: every base from 0 to 120 lands between 0.087 and 0.113,
-which at 600 games is one noise band wide, so the *shape* between 0 and 120 is not resolved —
+The last two rows are the shipped engine twice: with the pressure ramp neutralised
+(`x_pstep=0`, strict 0.0650) and as it actually ships (0.0700, measured on the 1200-game
+shipped-vs-shipped arm; the ramp without the base is worth about +0.005 strict/g).
+
+Read that table the way it deserves: every base from 0 to 120 lands between 0.067 and 0.113,
+a spread about two noise bands wide, so the *shape* between 0 and 120 is not resolved —
 only the drop at 220–340 is. What the column really shows is that **the exact base hardly
 matters and 340 was far outside the plateau**. The Elo column is the arena's `elo` with the
 sign flipped (it reports `ctl − var`), and every base is stronger than 340. On two further
@@ -82,8 +87,14 @@ against the actual built 5.4.1:
 | 10+0.1, 200 games | knob | +0.0500 [−0.015,+0.115] | −43.7 [−88,−1] |
 | **pooled (4 seeds)** | mixed | **+0.0200** [+0.008,+0.039] | 5 of 5 draws stronger |
 
-The honest planning number is **~+0.02 strict brilliant/game** (0.065 → ~0.085, about +30%
-relative); seed 11 is a strong draw. Note the split: the two **real-binary** seeds are the
+The honest planning number is **~+0.02 strict brilliant/game** — a *paired* delta against
+5.4.0 on the same openings, not a claim about the absolute level: across seeds the
+shipped-vs-shipped arms average 0.069/g and the three real-binary arms 0.069/g, so what the
+release buys is the difference on paired games, not a visible move in the raw rate. (An earlier
+draft read the planning number as an absolute "0.065 → ~0.085"; the 0.065 there was the
+ramp-neutralised variant, and the absolute levels do not separate.) Seed 11 is a strong draw.
+Note the split:
+the two **real-binary** seeds are the
 weakest-reading rows (+0.0167 and +0.0100, both straddling zero), so the pooled figure leans on
 the seed-11 knob arm. The **Elo gain is the more consistent signal** — every draw of the five,
 including both real binaries and the long time control, is **29–52 Elo stronger**. Only the

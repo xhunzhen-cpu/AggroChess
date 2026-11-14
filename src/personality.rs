@@ -114,9 +114,9 @@ pub fn derive(s: Settings) -> Derived {
     // a speculative sacrifice of a pawn or two is welcome all game. The size of that first bonus
     // is what decides how far below sound a sacrifice may be, and it was measured to be far too
     // large at 340: on the same openings and 600-game draws a first-sacrifice bonus of 20 raises
-    // the strict chess.com brilliant rate from 0.065 to 0.113 per game AND is ~50 Elo *stronger*
+    // the strict chess.com brilliant rate from 0.075 to 0.113 per game AND is ~50 Elo *stronger*
     // head-to-head (0/5/10/20/40/60/120/220/340 give 0.108/0.067/0.080/0.113/0.092/0.087/0.093/
-    // 0.078/0.065, peaking at 20). The bonus is what buys junk *inside* the badge-shaped window:
+    // 0.078/0.070, peaking at 20; the 340 shown is that arm's own shipped-vs-shipped rate). The bonus is what buys junk *inside* the badge-shaped window:
     // on the same 600 games (shipped 340 as ctl, base 20 as var) the badge-shaped events inside
     // moves 10-30 stay level (0.235 -> 0.250 per game), the unsound share of them falls
     // (95 -> 69) and the conversion inside the window rises (18.4% -> 31.3%) - so total
