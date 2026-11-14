@@ -59,6 +59,20 @@ pub static MATERIAL_PRES: AtomicI32 = AtomicI32::new(crate::personality::INITIAL
 /// timid. 100 is the shipped behaviour, and the shipped default is 100, so the engine is
 /// bit-identical unless the knob is set.
 pub static HANG_PCT: AtomicI32 = AtomicI32::new(100);
+/// DEV (x_hanglive): the same "mind a hanging piece less" tolerance as `HANG_PCT`, but placed in
+/// the PERSONALITY layer so the quiescence search actually sees it.
+///
+/// `HANG_PCT` sits under the `if !full { break; }` guard of the threats block, and `compute` is
+/// called with `full=false` by `personality()`, which is what the search adds on top of the net.
+/// The only search path that reaches the classical evaluation is the bare-king / sparse-endgame
+/// special case, so `x_hang` cannot move the engine's choices in normal play -- which is exactly
+/// why it measured INERT.
+///
+/// This term is the ink that search can see: pieces and pawns of the ENGINE that are attacked by
+/// the opponent and not defended by the engine are worth up to `HANG_LIVE * count` less, per the
+/// formula this setting selects. Larger positive = more willing to leave a piece en prise, which
+/// is the chess.com "ignored attack" brilliant shape. 0 = off (shipped, bit-identical).
+pub static HANG_LIVE: AtomicI32 = AtomicI32::new(0);
 /// King clamp bonus (a pawn of ours on the 6th rank against the enemy king), personality
 /// layer, at the default aggression. 0 = off.
 pub static KING_CLAMP: AtomicI32 = AtomicI32::new(45);
@@ -916,6 +930,19 @@ fn compute(board: &Board, full: bool) -> (i32, i32) {
             let threats = (their_pieces & x.att_all[ec]).count_ones() as i32;
             pmg[ec] += (outposts * 8 + threats * 6) * ak / 60;
             peg[ec] += (outposts * 3 + threats * 3) * ak / 60;
+        }
+        let hl = HANG_LIVE.load(Ordering::Relaxed);
+        if hl != 0 {
+            // Hanging tolerance, in the layer the search can see (see HANG_LIVE). Our pieces and
+            // pawns that the opponent attacks and we do not defend are the ones that fall when we
+            // choose to ignore the attack, so a positive `hl` refunds part of what the net
+            // charges for such a piece. Only ever a REFUND: `hl` < 0 is treated as 0.
+            let hang = x.colors[ec] & !x.pcs[ec][5] & x.att_all[oc] & !x.att_all[ec];
+            let hn = (hang & !x.pcs[ec][0]).count_ones() as i32;
+            let hp = (hang & x.pcs[ec][0]).count_ones() as i32;
+            let h = hl.max(0);
+            pmg[ec] += hn * 22 * h / 100 + hp * 4 * h / 100;
+            peg[ec] += hn * 12 * h / 100 + hp * 3 * h / 100;
         }
         if mp != 50 {
             // Material Preservation: how much a material deficit hurts beyond what the network

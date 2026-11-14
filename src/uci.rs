@@ -541,6 +541,18 @@ pub fn uci_loop() {
                                 crate::eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed);
                             }
                         }
+                        "x_hanglive" => {
+                            // Dev knob: hanging tolerance in the PERSONALITY layer, i.e. the one
+                            // the quiescence search actually evaluates. `x_hang` scales a term
+                            // under `if !full { break; }` that only the bare-king/sparse-endgame
+                            // special case reaches, so it cannot steer normal play. Positive =
+                            // more willing to leave a piece en prise (the ignored-attack shape).
+                            // 0 = shipped (bit-identical).
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                crate::eval::HANG_LIVE.store(v.max(0), Ordering::Relaxed);
+                                crate::eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
                         "x_chainmin" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::CHAIN_MIN.store(v, Ordering::Relaxed);
