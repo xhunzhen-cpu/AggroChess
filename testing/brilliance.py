@@ -4,8 +4,10 @@
 `tests/brilliance.epd` marks two kinds of position:
 
   * a **brilliancy** (`id "B1"`, `id "B4"`): the engine must play the `bm` move when the
-    Brilliance option is on, at every Skill Level (a case may set `c4 "N"` to document a
-    measured exception; the default minimum is 21, and B4 = 14);
+    Brilliance option is on, at every Skill Level; a case may set `c4 "N"` to document a
+    measured exception (the lowest Skill Level at which the `bm` move is required - the
+    default minimum is 1, so every case that omits `c4` keeps the "every Skill Level"
+    contract, and B4 sets 14);
   * a **control** (`c1 "control..."`): the look must not play anything "on purpose" - the
     engine may play any legal move, but no `brilliancy look ... -> played` line may appear.
 

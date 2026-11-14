@@ -117,12 +117,26 @@ pub fn derive(s: Settings) -> Derived {
     // the strict chess.com brilliant rate from 0.065 to 0.113 per game AND is ~50 Elo *stronger*
     // head-to-head (0/5/10/20/40/60/120/220/340 give 0.108/0.067/0.080/0.113/0.092/0.087/0.093/
     // 0.078/0.065, peaking at 20). The bonus is what buys junk *inside* the badge-shaped window:
-    // the window is conserved, the unsound share of it falls and the conversion inside it rises.
-    // The pressure ramp added on top of this bonus is *load-bearing* once the base is small,
-    // though it was inert while the base was 340: neutralising it at base 340 changed nothing
-    // (exactly +0.000 strict/g, neutral Elo), but at base 20 it collapses the strict rate
-    // 0.113 -> 0.072 and the engine 52 -> 12 Elo. The winning shape is therefore *small early*
-    // (no junk in the badge window) *growing late* (the ramp supplies the +450 late-game bonus).
+    // inside moves 10-30 the badge-shaped events nearly halve (284 -> 150 over 600 games), the
+    // unsound share of them falls (110 -> 52) and the conversion inside the window rises
+    // (19.4% -> 31.3%) - so total sacrifice volume is roughly flat while the strict count nearly
+    // doubles (on the same 600 games base 20 fires slightly fewer sacrifices than base 340 -
+    // 835 vs 866 - but nearly twice as many strict brilliants, 68 vs 39).
+    // The pressure ramp added on top of this bonus is *load-bearing* once the base is small.
+    // At base 340 it bought no brilliants at all (neutralising it left strict exactly +0.000/g)
+    // while COSTING 35 Elo, so it only ever hurt; at base 20 it buys +0.042 strict/g for about
+    // 12 Elo. The winning shape is therefore *small early* (no junk in the badge window)
+    // *growing late* (the ramp supplies the +450 late-game bonus). Its brilliants come from the
+    // floor half, not the bonus half: killing only the floor drop (x_timefloor=0) drops strict
+    // 0.113 -> 0.073, while killing only the bonus (x_pstep=0) leaves 0.072 - the bonus half is
+    // worth ~0. See also `PRESSURE_FLOOR_NUM`.
+    // The peak at 20 is a single-draw feature: on other seeds base 0 ties base 20 on strict
+    // (paired +0.0006/g over 3 seeds), and base 0 is in fact the *stronger* of the two — on a
+    // direct same-binary head-to-head (only this knob differing) base 0 wins 301-220, i.e. ~47
+    // Elo, and it is 59-84 Elo stronger than base 20 against the shipped 340 on three seeds.
+    // The reason to keep the base above 0 is not strength: a 0 bonus trips the early return in
+    // sac_params_for and throws away the whole search-level sacrifice subsystem (ramp, floor
+    // drag, chain, after-sac, gambit, forcing tie-break), which this default wants to keep.
     // (An earlier version kept 240 of a 380 bonus and started the pressure at move 12; measured,
     // it gave fewer purposeful sacrifices per move in balanced positions than 4.5.0, about twice
     // the blunders, and lost about 170 Elo: tolerating four-pawn howlers is not the same as
