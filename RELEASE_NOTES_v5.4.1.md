@@ -54,7 +54,8 @@ backwards; the sign convention `ctl − var` makes a *more negative* Elo a *stro
 which is why 20 and not 0 was chosen: it keeps the whole ramp alive. Two caveats the reader
 should have. First, the peak is a single-seed feature: repeated on other seeds, base 0 and base
 20 are indistinguishable on strict brilliants — 3 seeds give base 0 +0.0278/g over shipped and
-4 seeds give base 20 +0.0217/g, and pairing the two directly on shared games gives
+4 seeds give base 20 +0.0217/g (these are the dose-curve knob arms, a different set from the
+evidence table's 4 seeds below), and pairing the two directly on shared games gives
 **+0.0006/g over 3 seeds** (a wash). What separates them is that base 0 is *stronger*, not
 weaker: on the direct same-binary head-to-head (`bn0v20_s11`, only `x_sacbonus` differing) base 0
 wins 301 games to base 20's 220, **+47 Elo**, and against shipped 340 base 0 is 59–84 Elo
