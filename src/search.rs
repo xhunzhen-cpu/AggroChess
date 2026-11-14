@@ -1211,11 +1211,31 @@ pub static NONKING_SEE: AtomicI32 = AtomicI32::new(150);
 /// Dev knob (`x_piecesac`): percent of the sacrifice appetite granted to a PIECE-OR-BIGGER
 /// sacrifice that the king-aim gates did NOT catch. See the branch in the move scoring.
 ///
-/// The measured problem this addresses: 63.4% of the engine's sacrifice events are pawn
-/// sacrifices, which can never earn a chess.com badge, while the whole bonus apparatus is built
-/// around pawn gambits. A piece sacrifice away from the king currently earns nothing.
+/// MECHANISM. The sacrifice bonus `sb` is a centipawn tolerance on the search window for a move
+/// that gives up material. Its first gate is `aimed_at_king` (a check, landing in the enemy king
+/// zone, or the moved piece bearing on it), and every fall-through branch below it is either an
+/// exchange sacrifice, Tal's kind, the "any sacrifice" discount, or the pawn-gambit branch. So a
+/// piece-or-bigger give-away that is NOT aimed at the king falls through all of them and earns
+/// nothing. `x_piecesac=N` (N>0) adds a branch that admits exactly that shape -- moved piece not a
+/// Pawn or King, and a `see_ge` fail of at least `PIECE_SAC_SEE` (a real material loss, not a
+/// pawn) -- and grants it `N` percent of `sac_bonus`. The bonus shifts the search window and the
+/// root bookkeeping exactly as every other sacrifice branch does.
 ///
-/// DEFAULT IS 0 (off): the branch is dead and the shipped engine is bit-identical.
+/// KNOWN (measured). 63.4% of the engine's sacrifice events are PAWN sacrifices, which can never
+/// earn a chess.com badge (the badge needs a piece/queen/exchange), while the whole bonus
+/// apparatus is built around pawn gambits. A piece sacrifice away from the king currently earns
+/// no tolerance at all. Live on a single position the knob moves the root score by tens of cp
+/// (e.g. -53 off -> -9 at x_piecesac=250) and changes the best move, so the branch is reachable
+/// and not dead code (the failure mode that killed `x_hang`; see eval.rs:769). On a 100-position
+/// bite test it changed the played move on 7 with x_piecesac=100 and 18 with 250.
+///
+/// UNKNOWN (not yet measured). Whether the extra sacrifices land in the badge-shaped pool -- a
+/// sound piece sacrifice of the moved piece that survives the sf_before/sf_after/drop gates -- is
+/// NOT established; those sacrifices may be unsound, may recoup, or may leave a lost position, in
+/// which case they raise sacrifice volume without raising the badge count. The Elo cost at the
+/// owner's ~1100-1300 floor is also unknown. Both need an arm match, which this task does not run.
+///
+/// DEFAULT IS 0 (off): the branch is dead and the shipped engine is bit-identical (bench 168104).
 pub static PIECE_SAC_PCT: AtomicI32 = AtomicI32::new(0);
 /// SEE bar (cp, negated) for the `x_piecesac` branch. Default 250 is deliberately wider than the
 /// 150 used for the king-aimed sacrifice, so the branch can reach a real piece give-away.

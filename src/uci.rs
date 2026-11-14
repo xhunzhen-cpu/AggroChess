@@ -521,6 +521,19 @@ pub fn uci_loop() {
                                 search::PIECE_SAC_SEE.store(v, Ordering::Relaxed);
                             }
                         }
+                        // `x_nonking` / `x_nonkingsee`: the non-king sacrifice branch. The statics
+                        // and the search-side branch existed but the handlers were missing, so
+                        // every arm that set them was silently a null self-vs-self. Wired here.
+                        "x_nonking" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::NONKING_PCT.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_nonkingsee" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::NONKING_SEE.store(v, Ordering::Relaxed);
+                            }
+                        }
                         "x_hang" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 crate::eval::HANG_PCT.store(v.max(0), Ordering::Relaxed);
