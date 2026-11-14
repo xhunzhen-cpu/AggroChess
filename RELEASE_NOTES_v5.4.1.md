@@ -8,10 +8,13 @@ the result: **more chess.com brilliants and ~29–52 Elo stronger**, on every dr
 ## What changed
 
 One line in `personality::derive()`: the first-sacrifice bonus for Sacrifice Appetite above
-the classic 75 is **20** instead of 340. Everything else is the untouched 5.4.0 machinery —
-the pressure ramp (which still adds up to +450 by move 50), the floor drag, chained
-sacrifices, the after-sacrifice level, the gambit bonus, the winning-sacrifice licence and
-the classification relaxation.
+the classic 75 is **20** instead of 340. Everything else in the sacrifice machinery is the
+untouched 5.4.0 code — the pressure ramp (which still adds up to +450 by move 50), the floor
+drag, chained sacrifices, the after-sacrifice level, the gambit bonus, the winning-sacrifice
+licence and the classification relaxation. (The look-threshold work committed since the v5.4.0
+tag also rides along in this branch; against the released 5.4.0 binary those changes measure a
+**clean null** at this time control — 600 games, `elo −0.58 [−25.9, +24.8]` — so the comparisons
+below are against the same behaviour either way.)
 
 Nothing reads the Skill Level, so this is a personality change pure and simple; `Classic`
 (Sacrifice Appetite 75 and below) is bit-identical to 4.5.0 and unchanged.
@@ -75,9 +78,11 @@ same 600 games base 20 fires about the same number of sacrifices as base 340 (83
 ## Evidence
 
 Head-to-head against 5.4.0, same openings and options, quiet `movetime 300`
-(positives mean this release is stronger). "knob" rows ran the shipped 5.4.0 binary against a
-5.4.0 binary with `x_sacbonus` set by hand; "real binary" rows ran the shipped 5.4.0 binary
-against the actual built 5.4.1:
+(positives mean this release is stronger). "knob" rows ran the 5.4.0 branch build against the
+same binary with `x_sacbonus` set by hand; "real binary" rows ran the 5.4.0 branch build
+against the actual built 5.4.1. (The 5.4.0 side of every row is the branch build at the shipped
+base 340, not the released binary — those two are a statistical tie at this time control, 600
+games, `−0.58 [−25.9, +24.8]`, so the readings below hold against either.)
 
 | draw | kind | strict Δ/game | Elo (5.4.0 − 5.4.1) |
 |---|---|---|---|
@@ -103,11 +108,47 @@ seed-11 strict delta is significant on its own; the 10+0.1 arm is 200 games and 
 still straddles zero, so read it as confirmation at a second time control, not as evidence.
 
 One thing the table does **not** show, and should: base 0 is *stronger still* than this release.
-On the direct same-binary head-to-head (`bn0v20_s11`: the same 5.4.1 binary on both sides, only
-`x_sacbonus` differing) base 0 wins 301 games to base 20's 220 — **base 0 is ~47 Elo stronger**,
-with strict at 0.1000/g against base 20's 0.0733. Base 0 is also 59–84 Elo stronger than base 20
-against shipped 340 on three seeds. The base is held at 20 only because a 0 bonus switches the
-whole search-level sacrifice subsystem off.
+Four independent seeds of the direct same-binary head-to-head — the same 5.4.1 binary on both
+sides, only `x_sacbonus` differing — give base 0 **301 / 329 / 308 / 311** wins to base 20's
+**220 / 205 / 220 / 213** (seeds 11 / 7 / 23 / 5), i.e. `elo (ctl − var)` of
+**−47.2 / −72.9 / −51.3 / −57.3**; pooled that is **1249–858 over 2400 games, +57 Elo for base 0**
+on every single draw. It is no sacrifice in brilliancy either:
+pooled over all 2400 games base 0 is at **0.0887 strict/game against base 20's 0.0725
+(+0.0163, paired bootstrap 95% CI [+0.0008, +0.0321] — it excludes zero)** with the relaxed tier
+up the same way (+0.0196) and sacrifice *volume* unchanged (1.41 vs 1.47/g). The mechanism is
+visible in the blunder rate: base 0 plays the same number of sacrifices but cuts
+**blunders/game from ~1.48 to ~1.11 (−25%)** — it is not less sacrificial, it chooses better.
+Against the **340** baseline the gap is larger still and holds at the user's own time control:
+three 10+0.1 arms measure **−92.5 / −113.3 Elo over 300 / 200 games** (and −195 on 100 games),
+against −100 to −119 Elo at `movetime 300`. (Careful with the arithmetic: base-0-over-20 and
+base-0-over-340 are different comparisons, and the base-0-over-20 gap does *not* grow with the
+time control — the −92/−113/−196 figures are all against 340.)
+
+The base is held at 20 rather than 0 because a 0 bonus trips the early return in `sac_params_for`
+and switches the entire search-level sacrifice subsystem off (ramp, floor drag, chain,
+after-sacrifice bonus, gambit, forcing tie-break) — a capability this release is built around, not
+a knob. **The win at base 0 is the whole tolerance layer leaving, not any one knob.** Every
+sub-effect, removed singly at base 20, fails to reproduce it: neutralising the ramp's bonus
+(`x_pstep=0`) leaves strict exactly unchanged and costs 12 Elo; the winning-sacrifice licence off
+(`x_winsac=0`) actually *loses* ~17 Elo; and base **1**, which keeps the whole subsystem alive,
+*loses* to base 20 too — on two seeds, 222–299 and 223–275, i.e. **+37.5 Elo for base 20**, with
+base 1 playing *worse* chess (strict 0.095→0.078 and 0.092→0.060, blunders up ~20%). The
+non-monotone ranking **0 > 20 > 1** is the tell: base 1 is not "base 20 with less tolerance", it
+is a *broken* configuration.
+
+The reason is visible in the code. First, the gambit bonus is scaled by the base as a
+**denominator** (`search.rs`: `g = gambit · sac_bonus / base`), and the numerator can carry the
+fixed 190-cp chain bonus — so `g` is `40·190/20 = 380` at base 20 and `40·190/1 = 7600` at base 1,
+against exactly `40` at base 340. That is a 9.5× (and 190×) inflation of the pawn-gambit term,
+confined to moves ~14–25, and it is why base 1 blunders more. Second, and larger: the sacrifice
+bonus `sb` is not only a move-ordering term. Right after each child search the engine uses it to
+shift the aspiration window, to **add** cp to the score carried up, and — when the bonus-free
+score lands below the sacrifice floor — to declare the score a mere *bound* and **re-search the
+whole subtree** with a fresh window. At base 0 `sb` is zero everywhere, so all three effects
+switch off at once and the search tree itself is different; that is why the individual knobs sum
+to nowhere near the observed −57. A dev knob (`x_gambitcap`) that caps only the gambit ratio is in
+the tree and under test, but the current evidence says the base-0 win is the bundle, not the
+gambit.
 
 ## The one behaviour change at low Skill Levels
 

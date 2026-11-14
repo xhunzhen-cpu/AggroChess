@@ -171,6 +171,42 @@ pub static ZONE_ORDER: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.zo
 /// Bonus for a pawn-sized sacrifice (a gambit) aimed at the king or opening lines in the
 /// middlegame (Sacrifice Appetite; 4.5.0: 0).
 pub static GAMBIT_BONUS: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.gambit_bonus);
+/// Dev knob (x_gambitcap): 1 = cap the gambit bonus's appetite ratio at 1.0 (see the gambit
+/// branch in the move scoring), so shrinking the base bonus can never inflate the gambit bonus
+/// above its configured `gambit` value. 0 restores the unclamped 5.4.1 arithmetic.
+///
+/// DEFAULT IS 0 (off): this static is NOT wired through `personality::apply()` and has no
+/// `INITIAL` field, so the shipped engine is unchanged until someone sets `x_gambitcap` by hand.
+/// That is deliberate for now — it exists so the gambit-only hypothesis can be A/B'd, since
+/// there is no `x_gambit` knob and `x_chain` moves the chained-sacrifice bonus at the same time.
+pub static GAMBIT_CAP: AtomicI32 = AtomicI32::new(0);
+
+/// Dev knob (`x_sbapply`): 1 (default) = the sacrifice bonus's *cp effects* are live, exactly as
+/// 5.4.0/5.4.1 ship them. 0 = the bonus still gates sacrifice DETECTION (`is_sac`) but is INERT as a
+/// score term: no shifted aspiration window, no `score += sb`, no below-floor re-search.
+///
+/// WHY: base 0 (`x_sacbonus=0`) trips the early return in `sac_params_for` and switches off not one
+/// but TWO things at once — (i) the bonus's cp effects and (ii) every depth/verification path that
+/// keys off sacrifice DETECTION (`is_sac` → root verify depth, full-depth sacrifice, `root_sac`
+/// chaining, sacrifice PV re-search). Those two are confounded in every arm measured so far. This
+/// knob zeroes only (i), so an A/B of `x_sbapply=0` against plain base 20 says which half the base-0
+/// win comes from, and — if it is (i) — gives a "best of both worlds" ship candidate: base 20 with
+/// the squeeze removed but the whole depth/ramp layer intact.
+///
+/// DEFAULT IS 1 (unchanged behaviour): like GAMBIT_CAP this static is not wired through
+/// `personality::apply()` and has no `INITIAL` field, so the shipped engine is unaffected.
+pub static SAC_BONUS_APPLY: AtomicI32 = AtomicI32::new(1);
+
+/// Dev knob (`x_sacdepth`): 1 (default) = sacrifice DETECTION buys depth (root verify one ply
+/// deeper, `SAC_FULL_DEPTH` searches the root sacrifice at full depth, `root_sac` enables the
+/// ply-2 chain bonus, and `is_sac` admits moves to the sacrifice PV re-search). 0 = those four
+/// depth effects are off while `is_sac` itself is still computed and the bonus still applies.
+///
+/// Companion to `SAC_BONUS_APPLY`: together they decompose base 0 into its two halves without the
+/// `p.bonus <= 0` early return, so the ramp/floor/classification layer stays populated in both.
+///
+/// DEFAULT IS 1 (unchanged behaviour): not wired through `personality::apply()`, no `INITIAL` field.
+pub static SAC_SAC_DEPTH: AtomicI32 = AtomicI32::new(1);
 /// Share of the sacrifice bonus (percent) for a sacrifice with one attacker fewer than
 /// SAC_FULL_UNITS behind it, and with fewer still (Speculative Sacrifices; 4.5.0: 60 and 25).
 pub static SAC_PARTIAL_HI: AtomicI32 = AtomicI32::new(crate::personality::INITIAL.sac_partial_hi);
@@ -2088,7 +2124,19 @@ impl Searcher {
                 // a gambit: about a pawn given for the attack or to open lines in the
                 // middlegame (bigger give-aways are sacrifices, handled above). It follows
                 // the sacrifice appetite down the tree and after the game's first sacrifice.
-                let g = self.sac.gambit * sac_bonus / self.sac.bonus.max(1);
+                //
+                // The divisor is the BASE bonus, but the numerator can carry the CHAIN bonus
+                // (`sac_bonus` at ply 2 is `max(bonus, chain)`), which is a fixed 190. When the
+                // base is large the ratio is 1.0 and this is exact; when the base is small the
+                // ratio explodes (base 20 -> 190/20 = 9.5x, base 1 -> 190x) and the gambit bonus
+                // is inflated into junk territory. Cap the ratio at 1.0 so the gambit bonus can
+                // never exceed the configured `gambit` value: identical at base 340 (shipped),
+                // and it removes the small-base inflation without touching any other lever.
+                // (x_gambitcap=0 restores the unclamped 5.4.1 arithmetic for A/Bs.)
+                let mut g = self.sac.gambit * sac_bonus / self.sac.bonus.max(1);
+                if GAMBIT_CAP.load(Ordering::Relaxed) != 0 && g > self.sac.gambit {
+                    g = self.sac.gambit;
+                }
                 if root && g < self.sac.forcing && (gives_check || attacks_zone || capture) {
                     (self.sac.forcing, false)
                 } else {
@@ -2099,6 +2147,14 @@ impl Searcher {
             } else {
                 (0, false)
             };
+            // Dev knobs (x_sbapply / x_sacdepth), both default ON and behaviourally inert unless
+            // set. Base 0 removes the bonus's cp effects AND the sacrifice-depth machinery at the
+            // same time, so an arm at base 0 cannot say which half wins. These two shadow `sb` and
+            // `is_sac` so every downstream use (verify depth, root_sac chaining, `full_sac`, the
+            // shifted window, `score += sb`, the below-floor re-search, the sacrifice PV
+            // re-search) follows the switch — decomposing base 0 without the early return.
+            let is_sac = is_sac && SAC_SAC_DEPTH.load(Ordering::Relaxed) != 0;
+            let sb = if SAC_BONUS_APPLY.load(Ordering::Relaxed) != 0 { sb } else { 0 };
             // verify sacrifice candidates at the root one ply deeper before trusting them
             let new_depth = if root && is_sac && SAC_VERIFY.load(Ordering::Relaxed) { new_depth + 1 } else { new_depth };
             if root {

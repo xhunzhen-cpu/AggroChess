@@ -486,6 +486,21 @@ pub fn uci_loop() {
                                 search::CHAIN_BONUS.store(v, Ordering::Relaxed);
                             }
                         }
+                        "x_gambitcap" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::GAMBIT_CAP.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_sbapply" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::SAC_BONUS_APPLY.store(v, Ordering::Relaxed);
+                            }
+                        }
+                        "x_sacdepth" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::SAC_SAC_DEPTH.store(v, Ordering::Relaxed);
+                            }
+                        }
                         "x_chainmin" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::CHAIN_MIN.store(v, Ordering::Relaxed);
