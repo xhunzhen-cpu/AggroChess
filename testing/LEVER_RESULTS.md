@@ -447,3 +447,42 @@ Every intervention this session is now null on the honest metric:
 plus the six lever families measured null before this session. **The honest brilliancy rate of this
 engine is not movable by any of the levers available in it** — not by appetite, not by hanging, not
 by re-ranking, not by the opening repertoire.
+
+# The variety-matched control: the confound was real, and the book is HARMFUL
+
+I flagged before reporting the book lead that the book-ON side got opening *variety* the book-OFF
+side did not (ctl played `1.e4` in 151/151 games). The control arm holds variety equal — both sides
+start from the same diversified first-move set — so only the gambit CONTENT differs:
+
+| arm | what differs | pooled delta | CI |
+|---|---|---|---|
+| book1500_* (5 seeds) | book ON vs OFF, **no openings file** | +0.0057 | [−0.0007, +0.0121] |
+| bookctl_s11 | book ON vs OFF, **same varied openings** | **−0.0153** | [−0.0286, −0.0021] |
+
+**Decomposition:**
+* the book arm's +0.0057 was the book side enjoying variety the control side lacked;
+* with variety held equal the book is **significantly NEGATIVE** (63 → 40 badges, 0.64x);
+* implied value of opening variety alone: **+0.0210/g**; implied value of the gambit content:
+  **−0.0153/g**.
+
+So the gambit repertoire is not a brilliancy lever — it is mildly harmful to the honest count once
+its variety advantage is removed. The earlier "lead" was entirely the variety side-effect of
+having a book at all, and even that does not clear the bar on 5 seeds.
+
+# FINAL VERDICT of the session's programme
+
+Six interventions built and measured, all null on the honest metric:
+
+| intervention | pooled result |
+|---|---|
+| x_winsacoff | +0.0064 null |
+| x_aftersac=470 | −0.0003 null |
+| x_hanglive | +0.0030 null |
+| plan mode 1 | −0.0014 null |
+| plan mode 2 | +0.0042 null |
+| gambit book | +0.0057 null; control −0.0153 (harmful) |
+
+Plus six lever families measured null before this session. **The honest brilliancy rate is not
+movable by any lever available in this engine.** The bottleneck is structural: the shapes the owner
+counts are produced at a fixed low rate, and every mechanism that raises the raw shape lands in
+positions where the badge gate rejects it (see the dilution law).
