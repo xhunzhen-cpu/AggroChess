@@ -387,3 +387,22 @@ unsound, it is *in the wrong half of the board*.
 the increase must land in IN-BAND positions. The gambit book is the only intervention so far that
 plausibly does this, because it changes the positions themselves (opening the game from balanced
 gambit lines) rather than the engine's appetite within a position it already has.
+
+## A confound in the book arm's design, caught before it is reported
+
+The book-ON side gets something the book-OFF side does not: **move diversity**.
+
+| side | first-move distribution over 300 games |
+|---|---|
+| ctl (book OFF) | `1.e4` in **151/151** — fully deterministic |
+| var (book ON) | e4 90, d4 33, c4 18, Nf3 8 |
+
+So the arm measures "gambit repertoire **plus** opening variety" vs "one deterministic move", not
+"gambit quality" alone. Part of the +28% could be diversity rather than the repertoire's content.
+
+This does NOT invalidate the measurement -- it is a real difference in how the two configurations
+play, and the owner's real settings are the book-ON configuration, so the comparison is the one that
+matters for the product. But the honest description is "book ON beats book OFF", and any claim that
+the *specific gambit lines* are what does it needs a third arm (a variety-matched control: a book
+that picks randomly among the same first moves) that has not been run. Recorded so the claim does
+not outrun the evidence.
