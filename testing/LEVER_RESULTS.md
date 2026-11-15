@@ -406,3 +406,44 @@ matters for the product. But the honest description is "book ON beats book OFF",
 the *specific gambit lines* are what does it needs a third arm (a variety-matched control: a book
 that picks randomly among the same first moves) that has not been run. Recorded so the claim does
 not outrun the evidence.
+
+# The book lead is DEAD: five seeds, pooled null
+
+| seed | book OFF | book ON | delta/g |
+|---|---|---|---|
+| s7 | 58 | 82 | +0.0160 |
+| s11 | 52 | 59 | +0.0047 |
+| s23 | 45 | 58 | +0.0087 |
+| s5 | 69 | 68 | −0.0007 |
+| s41 | 54 | 54 | 0.0000 |
+| **POOLED (7500 games)** | **278** | **321** | **+0.0057** |
+
+CI **[−0.0007, +0.0121]** — includes zero. **Null.**
+
+The trajectory is the lesson: after 2 seeds the pooled figure was +0.0103 with a CI that *just*
+excluded zero; after 3 it was +0.0098, CI [+0.0016, +0.0180], apparently significant. Seeds 4 and 5
+came in at −0.0007 and 0.0000 and pulled it back under the bar. **At no point was the answer
+different from "null" — only my confidence in it, and the confidence was wrong twice.**
+
+This is the third time this session that a plausible mechanism produced a lead that evaporated under
+replication (x_sacungate-like for mode 2, and now the book). The discipline that saved it was
+running MORE SEEDS rather than stopping at the first significant-looking pooled number, and the
+pre-registered per-arm consistency check in `book_pool.py` (which flagged "one strong seed is not a
+result" before the third seed landed).
+
+## Final verdict of the session's measurement programme
+
+Every intervention this session is now null on the honest metric:
+
+| intervention | pooled result |
+|---|---|
+| x_winsacoff | null (+0.0064) |
+| x_aftersac=470 | null (−0.0003) |
+| x_hanglive | null (+0.0030 on its own leg) |
+| plan mode 1 | null (−0.0014) |
+| plan mode 2 | null (+0.0042) |
+| gambit book | null (+0.0057 over 7500 games) |
+
+plus the six lever families measured null before this session. **The honest brilliancy rate of this
+engine is not movable by any of the levers available in it** — not by appetite, not by hanging, not
+by re-ranking, not by the opening repertoire.
