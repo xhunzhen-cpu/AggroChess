@@ -355,3 +355,35 @@ Every MATCH forces the first 8 plies from 8moves_v3.txt, so the arms are the onl
 invisible; the owner's real games have had it all along. The book arms therefore measure what the
 EXISTING repertoire is worth, not whether to add one -- which had never been measured, because no
 previous arm dropped the openings line.
+
+# WHY "more shape" never becomes "more badge" — the dilution law
+
+Grading every ignored-attack flag by the position's own eval band (Stockfish, raw UCI):
+
+| arm | in-band | lost (<=-300) | win (>=+300) | sound (all from in-band) |
+|---|---|---|---|---|
+| bng_ctrl_s11 | 133 | 128 | 39 | 44 |
+| planm2_s23 | 190 | **208** | 44 | 69 |
+
+Mode 2's extra 142 flags split **+57 in-band, +80 LOST, +5 win**. So **56% of the extra shape lands
+in positions that are already lost** — where the badge gate rejects it by construction (`sf_after <=
+-150`, and Stockfish says <= -300). It adds 80 structurally ineligible flags for every 57 eligible
+ones. Even within the in-band bucket the sound rate barely moves (33% -> 36%).
+
+**This is the general law behind all three failed shape-levers:**
+
+| lever | raw shape | eligible (in-band) share | sound |
+|---|---|---|---|
+| x_hanglive | +16% / +7.5% | mostly not eligible | flat |
+| plan mode 1 | −21% | — | flat |
+| plan mode 2 | +35% (3 seeds) | 56% of the gain is in LOST positions | null |
+
+A lever that makes the engine leave more material hanging does so **mostly in positions it is
+already losing**, where hanging more changes nothing that can be counted. That is why the raw shape
+moves reliably in both directions while the badge count does not follow: the extra shape is not just
+unsound, it is *in the wrong half of the board*.
+
+**The actionable consequence** for any future lever: it is not enough to increase the badge SHAPE;
+the increase must land in IN-BAND positions. The gambit book is the only intervention so far that
+plausibly does this, because it changes the positions themselves (opening the game from balanced
+gambit lines) rather than the engine's appetite within a position it already has.
