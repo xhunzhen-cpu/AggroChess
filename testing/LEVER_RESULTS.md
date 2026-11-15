@@ -194,3 +194,20 @@ sacrifices toward balance and the badge count fell).
 The only direction with real headroom left is changing **which positions arise at all** — an opening
 repertoire / playing-style change, i.e. the gambit book. Every other lever family is now measured
 out.
+
+## Counter-check: did ANY arm shift a badge count in a way the sacrifice leg hides?
+
+Scored the other two legs too, so a movement there cannot hide behind a flat sacrifice count.
+
+| arm | sacrifice HONEST | ignored-attack structural |
+|---|---|---|
+| bng_ctrl_s11 | 63 | 386 (0.2573/g) |
+| planm1_s11 | 53 | 389 (0.2593/g) |
+| planm1_s7 | 69 | 369 (0.2460/g) |
+| planbig_s11 | 65 | 303 (0.2020/g) |
+
+No leg moves the right way: the sacrifice count is flat-to-down, and the ignored-attack shape is
+flat-to-**down** (planbig_s11 loses 21% of it, which is unsurprising -- the plan re-ranks toward
+offering the MOVED piece, so it spends moves that would otherwise have left another piece hanging).
+The STRICTEST tier is flat too (33 -> 30 / 41 / 42). There is no hidden effect in any of the three
+shapes.
