@@ -1150,6 +1150,9 @@ pub static TAL_LOOK: AtomicBool = AtomicBool::new(true);
 pub static PLAN_MARGIN: AtomicI32 = AtomicI32::new(0);
 pub static PLAN_CAND: AtomicI32 = AtomicI32::new(8);
 pub static PLAN_ON: AtomicBool = AtomicBool::new(false);
+/// Which badge shape the plan optimises: 1 = offer the MOVED piece (sacrifice), 2 = leave another
+/// piece winnable (ignored attack), 3 = both. Defaults to 1.
+pub static PLAN_MODE: AtomicI32 = AtomicI32::new(1);
 pub static TAL_LOOK_PCT: AtomicI32 = AtomicI32::new(30);
 pub static TAL_LOOK_PCT_PROMISING: AtomicI32 = AtomicI32::new(45);
 /// Whether the Sacrifice Appetite control asks for sacrifices at all (set by
@@ -4055,7 +4058,8 @@ fn search_position_inner(
             out!("info string plandbg depth {} margin {} best {} lines {} offers {:?} scores {:?}",
                 done_depth, margin, best_score, lines.len(), offers, sc_of);
         }
-        if let Some(i) = crate::plan::plan_pick(board, &mv_of, &sc_of, margin, max_cand) {
+        let mode = PLAN_MODE.load(Ordering::Relaxed).clamp(0, 3);
+        if let Some(i) = crate::plan::plan_pick(board, &mv_of, &sc_of, margin, max_cand, mode) {
             let m = lines[i].mv;
             if Some(m) != best_move {
                 let offer = crate::plan::offer_gain(board, m);

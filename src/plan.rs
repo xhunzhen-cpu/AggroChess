@@ -173,6 +173,76 @@ pub fn offer_gain(board: &Board, mv: Move) -> i32 {
     }
 }
 
+/// How many of our pieces, OTHER than the one that moved, the opponent can win by static exchange
+/// after `mv` -- the "ignored attack" shape (chess.com badges playing on while a piece is en prise).
+///
+/// Deliberately NOT restricted to newly-created hangs: the badge fires precisely when a piece is
+/// attacked and we play something that neither saves nor defends it, so an already-attacked piece
+/// left where it stands is the shape, not an exclusion. Excluding the moved piece keeps this
+/// separate from `offer_gain` (the sacrifice shape) so the two never double-count.
+pub fn ignore_gain(board: &Board, mv: Move) -> i32 {
+    let me = board.side_to_move();
+    let mut child = board.clone();
+    child.play_unchecked(mv);
+    let after = winnable_set(&child, me);
+    let moved_bb = 1u64 << mv.to as u32;
+    let king_bb = board.colored_pieces(me, Piece::King).0;
+    // A piece is "hanging" only if it is actually capturable after the move; ignore the one that
+    // just moved, and never count a king.
+    (after & !moved_bb & !king_bb).count_ones().min(3) as i32
+}
+
+/// Bitboard of `side`'s pieces the opponent can win by static exchange right now.
+fn winnable_set(board: &Board, side: Color) -> u64 {
+    let opp = !side;
+    let nb = if board.side_to_move() == opp {
+        board.clone()
+    } else {
+        match board.null_move() {
+            Some(b) => b,
+            None => return 0,
+        }
+    };
+    let our = (board.colors(side) & !board.colored_pieces(side, Piece::King)).0;
+    if our == 0 {
+        return 0;
+    }
+    let mut movers = 0u64;
+    for piece in PIECES {
+        for sq in board.colored_pieces(opp, piece) {
+            if attacks_of_piece(board, sq, piece, opp) & our != 0 {
+                movers |= 1u64 << sq as u32;
+            }
+        }
+    }
+    if movers == 0 {
+        return 0;
+    }
+    let mut won = 0u64;
+    nb.generate_moves_for(BitBoard(movers), |mvs| {
+        for cap in mvs {
+            if our & (1u64 << cap.to as u32) != 0 && see_ge(&nb, cap, WIN_GAIN) {
+                won |= 1u64 << cap.to as u32;
+            }
+        }
+        false
+    });
+    won
+}
+
+/// The plan's value for one move, under `mode`:
+///   1 = offer the MOVED piece (the sacrifice shape)
+///   2 = leave another piece winnable (the ignored-attack shape)
+///   3 = both, with one ignored piece worth half a knight offer
+pub fn plan_value(board: &Board, mv: Move, mode: i32) -> i32 {
+    match mode {
+        1 => offer_gain(board, mv),
+        2 => 100 * ignore_gain(board, mv),
+        3 => offer_gain(board, mv) + 100 * ignore_gain(board, mv),
+        _ => 0,
+    }
+}
+
 /// `offer_gain` is the primary measure (the moved piece is the one offered); `setup_score` is the
 /// broader one (any of our pieces is winnable) and is kept for diagnostics and future use.
 #[allow(dead_code)]
@@ -195,6 +265,7 @@ pub fn plan_pick(
     scores: &[i32],
     margin: i32,
     max_cand: usize,
+    mode: i32,
 ) -> Option<usize> {
     if root_moves.len() < 2 || scores.len() != root_moves.len() || margin <= 0 {
         return None;
@@ -214,10 +285,10 @@ pub fn plan_pick(
 
     let cur = cands[0];
     let mut best_i = cur;
-    let mut best_offer = offer_gain(board, root_moves[cur]);
+    let mut best_offer = plan_value(board, root_moves[cur], mode);
     let mut best_score = scores[cur];
     for &i in &cands[1..] {
-        let o = offer_gain(board, root_moves[i]);
+        let o = plan_value(board, root_moves[i], mode);
         if o > best_offer || (o == best_offer && scores[i] > best_score) {
             best_offer = o;
             best_score = scores[i];
@@ -277,6 +348,43 @@ mod tests {
     }
 
     #[test]
+    fn ignore_gain_counts_a_piece_left_hanging() {
+        // White king a1, rook h1, knight d3; Black rook d8 attacks the knight down the open d-file.
+        // A quiet king move leaves the attacked knight to its fate: that IS the ignored-attack
+        // shape (the badge fires on playing elsewhere while a piece is en prise).
+        let b = board("k2r4/8/8/8/8/3N4/8/K6R w - - 0 1");
+        let mut mg = Vec::new();
+        b.generate_moves(|mvs| { mg.extend(mvs); false });
+        let ka2 = mg.iter().copied().find(|m| m.from == Square::A1 && m.to == Square::A2).unwrap();
+        assert!(ignore_gain(&b, ka2) >= 1, "a quiet move that ignores the knight is the shape");
+        // moving the attacked knight OFF the file saves it: nothing is left hanging.
+        let nb4 = mg.iter().copied().find(|m| m.from == Square::D3 && m.to == Square::B4).unwrap();
+        assert_eq!(ignore_gain(&b, nb4), 0, "saving the piece creates no ignored attack");
+    }
+
+    #[test]
+    fn ignore_gain_sees_a_hang_created_by_the_move() {
+        // White bishop d3 SHIELDS the knight on d5 from the black rook on d8. Playing Bd3-a6 opens
+        // the file, so the knight starts hanging -- a hang the move created in a piece that did not
+        // move. a6 does not defend d5, so the hang is real.
+        let b = board("k2r4/8/8/3N4/8/3B4/8/K7 w - - 0 1");
+        let mut mg = Vec::new();
+        b.generate_moves(|mvs| { mg.extend(mvs); false });
+        let ba6 = mg.iter().copied().find(|m| m.from == Square::D3 && m.to == Square::A6).unwrap();
+        assert!(ignore_gain(&b, ba6) >= 1, "opening the file leaves the knight hanging");
+    }
+
+    #[test]
+    fn plan_mode_2_declines_the_offer_shape() {
+        // In the Qd4 position, mode 2 (ignored attack) must NOT pick the queen offer: that is the
+        // other shape's business, and mixing them would double-count.
+        let b = board("k7/8/2n5/8/8/8/8/K2Q4 w - - 0 1");
+        let moves = all_moves(&b);
+        let scores: Vec<i32> = vec![0; moves.len()];
+        assert_eq!(plan_pick(&b, &moves, &scores, 40, 8, 2), None);
+    }
+
+    #[test]
     fn moving_a_piece_into_take_wins_its_value() {
         // White queen d1 -> d4, where the black knight on c6 can take it for free.
         let b = board("k7/8/2n5/8/8/8/8/K2Q4 w - - 0 1");
@@ -309,7 +417,7 @@ mod tests {
         let b = board("k7/8/2n5/8/8/8/8/K2Q4 w - - 0 1");
         let moves = all_moves(&b);
         let scores: Vec<i32> = vec![0; moves.len()];
-        let picked = plan_pick(&b, &moves, &scores, 40, 8).expect("an offered-queen move exists");
+        let picked = plan_pick(&b, &moves, &scores, 40, 8, 1).expect("an offered-queen move exists");
         let mv = moves[picked];
         assert_eq!(mv.from, Square::D1);
         assert_eq!(mv.to, Square::D4, "the plan should offer the queen to the knight");
@@ -326,7 +434,7 @@ mod tests {
         scores[qd4] = -500;
         scores[0] = 0;
         // margin 40 excludes the -500 walk
-        let picked = plan_pick(&b, &moves, &scores, 40, 8);
+        let picked = plan_pick(&b, &moves, &scores, 40, 8, 1);
         assert!(picked != Some(qd4), "a move outside the margin must never be picked");
     }
 
@@ -336,7 +444,7 @@ mod tests {
         let b = board("k7/8/8/8/8/8/8/K2Q4 w - - 0 1");
         let moves = all_moves(&b);
         let scores: Vec<i32> = vec![0; moves.len()];
-        assert_eq!(plan_pick(&b, &moves, &scores, 40, 8), None);
+        assert_eq!(plan_pick(&b, &moves, &scores, 40, 8, 1), None);
     }
 
     #[test]
@@ -348,6 +456,6 @@ mod tests {
         let qd4 = moves.iter().position(|m| m.from == Square::D1 && m.to == Square::D4).unwrap();
         let mut scores: Vec<i32> = vec![-10; moves.len()];
         scores[qd4] = 0;
-        assert_eq!(plan_pick(&b, &moves, &scores, 40, 8), None);
+        assert_eq!(plan_pick(&b, &moves, &scores, 40, 8, 1), None);
     }
 }

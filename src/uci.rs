@@ -569,6 +569,13 @@ pub fn uci_loop() {
                                 search::PLAN_CAND.store(v.clamp(1, 32), Ordering::Relaxed);
                             }
                         }
+                        "x_planmode" => {
+                            // 1 = offer the MOVED piece (sacrifice), 2 = leave another piece
+                            // winnable (ignored attack), 3 = both. Requires x_plan > 0.
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::PLAN_MODE.store(v.clamp(1, 3), Ordering::Relaxed);
+                            }
+                        }
                         "x_chainmin" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::CHAIN_MIN.store(v, Ordering::Relaxed);
