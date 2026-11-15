@@ -146,3 +146,51 @@ metric does next is attributable to the plan, not to the plumbing.
 
 Elo cost is real and expected (margin 60: +20; margin 200: +75 at 2/3 distance) — sanctioned, since
 the floor is the only limit.
+
+## "Already winning" is closed on evidence, not inference
+
+Of the control arm's 199 piece+ non-mating events the arena calls "already winning", **182 (91%)
+are still clearly winning after the sacrifice** (`sf_after > 150`), and 156 (78%) are still at
+>= +300. So for nine in ten of them the sacrifice genuinely did not hurt the engine — which is
+precisely why suppressing the appetite cannot help: there is nothing to gain by declining a
+sacrifice that leaves you winning anyway. Combined with the licence governing only ~11% of the set,
+this closes the entire "stop sacrificing when winning" branch of the funnel analysis.
+
+# THE DECISIVE RESULT: the plan layer is null too
+
+| arm | margin / mode | HONEST/g | delta vs 0.0420 | Elo cost |
+|---|---|---|---|---|
+| planm1_s11 | 60 / mode 1 | 0.0353 | −0.0067 | +22.7 |
+| planm1_s7 | 60 / mode 1 | 0.0460 | +0.0040 | +27.2 |
+| planbig_s11 | 200 / mode 1 | 0.0433 | +0.0013 | +72.7 |
+
+Pooled mode-1 (2 seeds): **−0.0014** — null, while paying ~25 Elo.
+
+This is the most important result of the session, because unlike the knob nulls it cannot be
+explained away by the lever not working:
+
+* the layer **fires** (5.4% of searches; 9.5% of eligible at margin 200);
+* **79% of its picks are genuine sacrifices** by direct material counting (verified independently);
+* at margin 200 it **shifts the funnel exactly as intended** — "not already winning" rises
+  542 → 610 (+68 events, +13%), i.e. sacrifices really do move into balanced positions.
+
+And the honest count still does not move. planm1_s11 is the sharpest case: it shifts 68 more
+sacrifices into badgeable positions and the moved-piece count goes **down** (63 → 53). More
+sacrifice-shaped opportunities in the right contexts did not convert into more brilliants.
+
+## What this means
+
+The plan layer was the strongest version of the "steer the search" idea: proactive, verified to
+fire, verified to pick real sacrifices, aimed at the exact gate the funnel identifies, and free to
+spend Elo. It fails anyway. Together with the three knob nulls and the six prior lever families, the
+honest conclusion is:
+
+**The honest brilliancy rate is not a knobbable or re-rankable quantity in this engine's current
+event mix.** The ceiling is structural: ~0.087 sound sacrifices/game exist, and turning them into
+~0.042 moved-piece brilliants is where the process ends. Re-ranking near-equal moves cannot create
+positions that were never there — which is exactly what the plan's own failure mode shows (it moved
+sacrifices toward balance and the badge count fell).
+
+The only direction with real headroom left is changing **which positions arise at all** — an opening
+repertoire / playing-style change, i.e. the gambit book. Every other lever family is now measured
+out.
