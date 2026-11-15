@@ -211,3 +211,27 @@ flat-to-**down** (planbig_s11 loses 21% of it, which is unsurprising -- the plan
 offering the MOVED piece, so it spends moves that would otherwise have left another piece hanging).
 The STRICTEST tier is flat too (33 -> 30 / 41 / 42). There is no hidden effect in any of the three
 shapes.
+
+# FIRST POSITIVE SIGNAL: plan mode 2 (ignored attacks)
+
+Mode 2 re-ranks toward leaving *another* piece winnable -- the ignored-attack shape, 43% of
+owner-full, and the one the sacrifice-focused plan mode 1 actively suppressed.
+
+| arm | sacrifice HONEST | ignored structural | **ignored SF-sound** | owner-full |
+|---|---|---|---|---|
+| bng_ctrl_s11 | 0.0420 (63) | 0.2573 (386) | **0.0347 (52)** | 0.0800 |
+| planm2_s23 | 0.0427 (64) | **0.3640 (546, +41%)** | **0.0467 (70, +35%)** | **0.0927 (+16%)** |
+
+* sound delta **+0.0120/g**, against a 95% bar of 0.0188 -> **not significant on one seed**;
+* the sound FRACTION of the shape falls slightly (13.5% -> 12.8%), so the gain is from volume, not
+  purity -- consistent with the `x_hanglive` lesson that hanging more is not automatically more
+  brilliant, but here the volume gain is large enough that some of it survives Stockfish;
+* Elo cost +46.6 -- large, but the floor is the only limit.
+
+**Status: a lead, not a result.** Replication on seeds 11 and 7 is running (`planm2_s11`,
+`planm2_s7`). One seed under the bar is exactly the pattern the project has been burned by before
+(x_sacungate cleared the bar on s11 and reversed on s23), so nothing ships on this alone.
+
+Note the asymmetry that makes this plausible rather than noise: mode 1 (offer the MOVED piece)
+pushed the ignored-attack shape DOWN 21%, and mode 2 pushes it UP 41%. The lever demonstrably
+controls the shape it targets, in both directions, which is what a real mechanism looks like.
