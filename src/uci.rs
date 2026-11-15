@@ -234,6 +234,26 @@ pub fn uci_loop() {
                                 search::BRILLIANCE.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
                             }
                         }
+                        "plan margin" => {
+                            // The plan layer (see plan.rs) re-ranks root moves within this many
+                            // centipawns of the best toward leaving the opponent something they
+                            // can win. 0 = off, the shipped behaviour. Not in the dev-knob block:
+                            // it is a user-facing strength/badges tradeoff, like Brilliance.
+                            if let Some(v) = int(&value) {
+                                let v = v.clamp(0, 200) as i32;
+                                search::PLAN_MARGIN.store(v, Ordering::Relaxed);
+                                search::PLAN_ON.store(v > 0, Ordering::Relaxed);
+                            }
+                        }
+                        "plan mode" => {
+                            // 1 = offer the MOVED piece (sacrifice), 2 = leave another piece
+                            // winnable (the ignored-attack badge), 3 = both. Only meaningful
+                            // when Plan Margin > 0. Default 2: mode 2 is the one measured to
+                            // move the badge count; see testing/LEVER_RESULTS.md.
+                            if let Some(v) = int(&value) {
+                                search::PLAN_MODE.store((v as i32).clamp(1, 3), Ordering::Relaxed);
+                            }
+                        }
                         "human think time" => {
                             if let Some(v) = int(&value) {
                                 crate::human::THINK.store(v.clamp(0, 100) as i32, Ordering::Relaxed);
@@ -1402,6 +1422,10 @@ pub fn option_lines() -> Vec<String> {
         format!("option name Material Preservation type spin default {} min 0 max 100", p.material_preservation),
         format!("option name Speculative Sacrifices type spin default {} min 0 max 100", p.speculative),
         format!("option name Brilliance type spin default {} min 0 max 100", search::BRILLIANCE_DEFAULT),
+        // Plan layer: the tradeoff between playing the best move and playing one that leaves the
+        // opponent something to win (a chess.com brilliant shape). 0 = off, the shipped behaviour.
+        "option name Plan Margin type spin default 0 min 0 max 200".to_string(),
+        "option name Plan Mode type spin default 2 min 1 max 3".to_string(),
         "option name Human Think Time type spin default 0 min 0 max 100".to_string(),
         "option name Human Base Minutes type spin default 0 min 0 max 480".to_string(),
         "option name Human Increment Seconds type spin default 0 min 0 max 60".to_string(),
@@ -1428,6 +1452,8 @@ fn is_user_option(name: &str) -> bool {
             | "material preservation"
             | "speculative sacrifices"
             | "brilliance"
+            | "plan margin"
+            | "plan mode"
             | "human think time"
             | "human base minutes"
             | "human increment seconds"
