@@ -128,3 +128,21 @@ does what it claims mechanically — it makes the engine leave pieces hanging mo
 of the increase is not Stockfish-sound, and the sound part is inside noise. The honest reading is
 that "hang more material" buys a bigger candidate pool without buying more genuine brilliancies,
 which is the same wall the whole programme keeps hitting.
+
+## Plan layer: it does what it claims (verified before reading the arm)
+
+The plan arms are only informative if the layer actually picks sacrifices. Sampling 372 searches
+across 25 real games with `AGGRO_PLANDBG=1`:
+
+* **fires 20/372 = 5.4%** at margin 200 (9.5% of *eligible* searches from the earlier probe);
+* **15 of 19 sampled picks (79%) are GENUINE sacrifices** by direct material counting — the mover
+  ends up >=150cp down after the opponent's best capture. Examples: `d2e4` (gives up 320),
+  `f3g5` (320), `f6g4` (320), `c1h6` (330), `f8f3` (580), `e1e7` (500).
+
+So the layer is not a no-op and not firing on trades: it re-ranks to quiet and capturing moves that
+hand over real material, which is precisely the badge shape the funnel says the engine fails to
+play. That makes the arm a fair test of the idea rather than of a broken lever — whatever the honest
+metric does next is attributable to the plan, not to the plumbing.
+
+Elo cost is real and expected (margin 60: +20; margin 200: +75 at 2/3 distance) — sanctioned, since
+the floor is the only limit.
