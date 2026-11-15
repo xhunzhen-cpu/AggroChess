@@ -331,3 +331,16 @@ fraction collapsed 13.5% -> 9.7% (63 vs 52). So the book's honest gain is carrie
 leg, not the ignored-attack leg.
 
 **Status: the book is the live lead, one seed, needs replication.** Seed 11 is grading.
+
+## Book, two seeds: pooled +28% honest badges, at the edge of significance
+
+Within-arm (book ON vs OFF on the same 1500 openings, same seed, so genuinely paired):
+
+| seed | book OFF | book ON | delta/g |
+|---|---|---|---|
+| s7 | 58 | 82 | +0.0160 |
+| s11 | 52 | 59 | +0.0047 |
+| **pooled (3000 games)** | **110** | **141** | **+0.0103** |
+
+CI [+0.000, +0.021] -- not yet significant. Both seeds point the same way, effect size +28% on the
+count. Seed 23 is running to settle it.
