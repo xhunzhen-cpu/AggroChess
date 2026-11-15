@@ -235,3 +235,20 @@ owner-full, and the one the sacrifice-focused plan mode 1 actively suppressed.
 Note the asymmetry that makes this plausible rather than noise: mode 1 (offer the MOVED piece)
 pushed the ignored-attack shape DOWN 21%, and mode 2 pushes it UP 41%. The lever demonstrably
 controls the shape it targets, in both directions, which is what a real mechanism looks like.
+
+## Mode 2's extra sound badges come from the right bucket
+
+Splitting the sound (SF-graded) ignored attacks by the position's eval BEFORE the move:
+
+| arm | sound flags | losing (<-100) | balanced | winning (>100) |
+|---|---|---|---|---|
+| bng_ctrl_s11 | 52 | 19 | 19 | 14 |
+| planm2_s23 | 70 | 29 | **32** | 9 |
+
+Mode 2's gain is concentrated in the **balanced** bucket (19 -> 32), which is where a badge genuinely
+matters, not in already-decided positions. And "sound" is a genuinely different population from
+"speculative": the NOISE flags cluster in winning positions (control noise: 45 winning / 55 balanced
+/ only 10 losing), so the Stockfish gate is selecting on soundness, not merely on position class.
+
+This is supporting evidence that the lead is a real effect rather than the lever padding its count
+with cheap positions. It is still one seed until the replicates land.
