@@ -344,3 +344,14 @@ Within-arm (book ON vs OFF on the same 1500 openings, same seed, so genuinely pa
 
 CI [+0.000, +0.021] -- not yet significant. Both seeds point the same way, effect size +28% on the
 count. Seed 23 is running to settle it.
+
+## The book is ON BY DEFAULT -- so this lead is already live in real play
+
+Verified with zero setoptions: the shipped binary plays a book move from the initial position
+(d2d4), and after 1.e4 e5 it plays f2f4 (the King's Gambit). own_book defaults true (uci.rs:138),
+the book file ships alongside the binary, and nothing else gates it.
+
+Every MATCH forces the first 8 plies from 8moves_v3.txt, so the arms are the only place the book is
+invisible; the owner's real games have had it all along. The book arms therefore measure what the
+EXISTING repertoire is worth, not whether to add one -- which had never been measured, because no
+previous arm dropped the openings line.
