@@ -11,6 +11,7 @@ pub mod human;
 pub mod matesearch;
 pub mod nnue;
 pub mod personality;
+pub mod plan;
 pub mod search;
 pub mod skill;
 pub mod uci;

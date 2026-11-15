@@ -553,6 +553,22 @@ pub fn uci_loop() {
                                 crate::eval::PERS_VERSION.fetch_add(1, Ordering::Relaxed);
                             }
                         }
+                        "x_plan" => {
+                            // Dev knob: turn on the plan layer (see plan.rs) by giving it a
+                            // margin in centipawns. A root move within this many centipawns of
+                            // the best may be re-ranked toward leaving the opponent a piece they
+                            // can win by static exchange. 0 = off (shipped, bit-identical).
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                let v = v.max(0);
+                                search::PLAN_MARGIN.store(v, Ordering::Relaxed);
+                                search::PLAN_ON.store(v > 0, Ordering::Relaxed);
+                            }
+                        }
+                        "x_plancand" => {
+                            if let Ok(v) = value.trim().parse::<i32>() {
+                                search::PLAN_CAND.store(v.clamp(1, 32), Ordering::Relaxed);
+                            }
+                        }
                         "x_chainmin" => {
                             if let Ok(v) = value.trim().parse::<i32>() {
                                 search::CHAIN_MIN.store(v, Ordering::Relaxed);

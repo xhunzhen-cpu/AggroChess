@@ -1143,6 +1143,13 @@ pub static ZONE_SAC_ORDER: AtomicBool = AtomicBool::new(true);
 
 /// Tal's look (see search_position) and the share of the thinking time it gets.
 pub static TAL_LOOK: AtomicBool = AtomicBool::new(true);
+
+// ---- Plan layer (see plan.rs) -------------------------------------------------------------
+// How many centipawns a root move may be worse than the best and still be eligible for the plan's
+// re-ranking, and how many near-equal lines it will probe. 0 = off (shipped behaviour).
+pub static PLAN_MARGIN: AtomicI32 = AtomicI32::new(0);
+pub static PLAN_CAND: AtomicI32 = AtomicI32::new(8);
+pub static PLAN_ON: AtomicBool = AtomicBool::new(false);
 pub static TAL_LOOK_PCT: AtomicI32 = AtomicI32::new(30);
 pub static TAL_LOOK_PCT_PROMISING: AtomicI32 = AtomicI32::new(45);
 /// Whether the Sacrifice Appetite control asks for sacrifices at all (set by
@@ -4016,6 +4023,55 @@ fn search_position_inner(
             *LAST_PV.lock().unwrap() = l.pv.clone();
             if print_info {
                 out!("info depth {} score {} pv {}", done_depth, format_score(shown_score(l.score, l.sb)), pv_string(board, &l.pv));
+            }
+        }
+    }
+
+    // ---- Plan: among near-equal moves, prefer the one that sets up a sacrifice ----
+    // The reactive machinery (brilliant.rs, the look) only judges sacrifices the search already
+    // found. This layer points the other way: it re-ranks near-equal root moves toward the one
+    // that leaves the opponent something to win by static exchange, i.e. the position a sound
+    // sacrifice grows out of. Like the Human Style taste below it, it only ever re-ranks moves
+    // the search itself calls near-equal, so the strength cost is bounded by the margin.
+    if std::env::var("AGGRO_PLANDBG").is_ok() {
+        out!("info string plandbg gate on={} swap={} score={} n_lines={} lines={} depth={} full={}",
+            PLAN_ON.load(Ordering::Relaxed), strategy_swap, best_score,
+            n_lines, lines.len(), done_depth, full);
+    }
+    if PLAN_ON.load(Ordering::Relaxed)
+        && !strategy_swap
+        && best_score.abs() < MATE_BOUND
+        && n_lines > 1
+        && lines.len() > 1
+        && done_depth >= 4
+        && full
+    {
+        let margin = PLAN_MARGIN.load(Ordering::Relaxed).clamp(0, 200);
+        let max_cand = PLAN_CAND.load(Ordering::Relaxed).clamp(1, 32) as usize;
+        let mv_of: Vec<Move> = lines.iter().map(|l| l.mv).collect();
+        let sc_of: Vec<i32> = lines.iter().map(|l| l.score).collect();
+        if std::env::var("AGGRO_PLANDBG").is_ok() {
+            let offers: Vec<i32> = mv_of.iter().map(|&m| crate::plan::offer_gain(board, m)).collect();
+            out!("info string plandbg depth {} margin {} best {} lines {} offers {:?} scores {:?}",
+                done_depth, margin, best_score, lines.len(), offers, sc_of);
+        }
+        if let Some(i) = crate::plan::plan_pick(board, &mv_of, &sc_of, margin, max_cand) {
+            let m = lines[i].mv;
+            if Some(m) != best_move {
+                let offer = crate::plan::offer_gain(board, m);
+                if let Some(prev) = best_move {
+                    out!("info string plan: {} over {} (offers {}, margin {})",
+                        cozy_chess::util::display_uci_move(board, m),
+                        cozy_chess::util::display_uci_move(board, prev),
+                        offer, margin);
+                }
+                // deliberate pick: the Human Style taste and the swindle leave it alone
+                strategy_swap = true;
+                best_move = Some(m);
+                if let Some(l) = lines.iter().find(|l| l.mv == m) {
+                    best_sb = l.sb;
+                    best_score = l.score;
+                }
             }
         }
     }
