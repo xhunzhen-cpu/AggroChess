@@ -252,3 +252,82 @@ matters, not in already-decided positions. And "sound" is a genuinely different 
 
 This is supporting evidence that the lead is a real effect rather than the lever padding its count
 with cheap positions. It is still one seed until the replicates land.
+
+# Gambit book (move-1 rig): the largest STRUCTURAL movement of the session
+
+First real test of the curated gambit repertoire, with the `openings` line dropped so games start
+at move 1 and the book can actually fire (every other arm forces the first 8 plies, so the book is
+invisible to them).
+
+| arm | games | structural ignored-attack | Elo (ctl−var) |
+|---|---|---|---|
+| bng_ctrl_s11 (ply-9 rig) | 1500 | 0.2564/g | — |
+| book1500_s11 (move 1, book ON vs OFF) | 1356+ | **0.4387/g (+71%)** | −39.6 |
+
+Two things are already clear and one is a caution:
+
+1. The book **does** what an opening repertoire is for: the ignored-attack shape rises 71%, the
+   biggest structural movement any arm has produced. Gambit lines really do reach positions where
+   pieces hang.
+2. Book ON beats book OFF by ~40 Elo, and the games are genuinely varied (400/400 distinct move
+   sequences, so this is not a determinism artefact).
+3. **The caution:** with the openings line dropped, the two sides no longer start from a shared
+   balanced position. The book arm measures "book vs no book from move 1", not "book vs book from a
+   common opening" -- so its Elo number is about the repertoire's quality, and the honest/game
+   numbers cannot be compared directly against the ply-9 control above. Any brilliancy claim from
+   this arm must be book-ON leg vs book-OFF leg within the same arm, which is what the graded
+   events give.
+
+SF-sound grading of the 0.4387/g structural rate is running; only that number decides whether the
+book is a brilliance lever or just a different position mix.
+
+# Mode 2 failed replication — the lead is dead
+
+Three seeds on the ignored-attack leg:
+
+| seed | structural | SF-sound | sound/g | delta |
+|---|---|---|---|---|
+| (control) | 386 | 52 | 0.0347 | — |
+| s23 | 546 (+41%) | 70 | 0.0467 | +0.0120 |
+| s11 | 485 (+26%) | 43 | 0.0287 | **−0.0060** |
+| s7 | 536 (+39%) | 62 | 0.0413 | +0.0067 |
+
+**Pooled +0.0042/g — null**, against a 0.0188 bar, with signs disagreeing across seeds. This is
+exactly the failure mode the handover flagged (x_sacungate: +0.0167 on s11, −0.0053 on s23), and it
+is why nothing ships on one seed.
+
+The CONSISTENT part is the raw shape: structural rises on all three seeds (mean +35%, 386 -> 522).
+The sound count does not follow it — the SF-sound fraction of the shape falls from 13.5% to
+11.2% pooled. So mode 2 reliably makes the engine leave more pieces hanging, and reliably fails to
+make that count as brilliancy, because most of the extra hangs are not Stockfish-sound.
+
+**This is now the third independent instance of the same wall:**
+
+| lever | target shape movement | sound movement |
+|---|---|---|
+| x_hanglive | structural +16% / +7.5% | flat |
+| plan mode 1 | ignored shape **−21%** | flat |
+| plan mode 2 | structural **+35% (3 seeds)** | **null, pooled +0.0042** |
+
+A lever can move the raw shape in either direction, reliably and reproducibly, and the
+Stockfish-sound count does not move with it. **The raw shape and the badge are decoupled.**
+
+## The gambit book: the one thing that DID move the honest metric
+
+Book arm, compared within itself (the only fair comparison, since dropping the openings line means
+the two sides no longer share a starting position):
+
+| leg | sacs/g | LOOSE | HONEST | strictest |
+|---|---|---|---|---|
+| book OFF (ctl) | 1.679 | 0.0707 | 0.0387 | 0.0240 |
+| book ON (var) | 1.737 | 0.0853 | **0.0547** | **0.0340** |
+
+**+0.0160 HONEST/g**, above the 0.0147 floor, and the strictest tier moves with it (+0.0100).
+Repertoire quality also shows up as strength: book ON beats book OFF by ~40 Elo, with genuinely
+varied games (400/400 distinct sequences).
+
+But its own ignored-attack leg tells the same cautionary story: structural +69% (652 vs 386), sound
+fraction collapsed 13.5% -> 9.7% (63 vs 52). So the book's honest gain is carried by the SACRIFICE
+leg, not the ignored-attack leg.
+
+**Status: the book is the live lead, one seed, needs replication.** Seed 11 is grading.
